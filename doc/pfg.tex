@@ -1,0 +1,229 @@
+% Opciones empleadas:
+%
+%	a4paper -> indica el tamaño del papel, en este caso A4.
+%	11pt -> tamaño de la fuente 11 puntos.
+%	oneside -> sólo escribimos en una cara del folio.
+% 
+% Otras opciones interesantes:
+%
+%	twoside -> escribimos a doble cara.
+%	openbib -> para que las referencias bibliográficas tengan un salto de línea entre cada campo de la referencia.
+%
+\documentclass[a4paper,11pt,twoside]{book}
+
+% configuración de márgenes
+\usepackage{setspace}
+\doublespacing
+\setlength\textwidth{15cm}
+\setlength\textheight{22cm}
+\setlength\oddsidemargin{1cm}
+\setlength\evensidemargin{0cm}
+
+% codificación utf8x y símbolos del idioma español (ñ, acentos, ...)
+% el documento será necesario editarlo en utf-8
+\usepackage[spanish]{babel}
+\usepackage[utf8x]{inputenc}
+\usepackage{morefloats}
+
+% puede que queramos usar el símbolo del euro.
+\usepackage{eurosym}
+
+% El paquete fancybox nos permite crear cajas de diferentes estilos con facilidad.
+% http://www.ctan.org/get/macros/latex/contrib/fancybox/fancybox.pdf
+% http://www.mackichan.com/index.html?techtalk/487.htm~mainFrame
+\usepackage{fancybox}
+\usepackage{multicol}
+\usepackage{amsmath}
+
+% Para incluir subfiguras.
+\usepackage{subfigure}
+
+% Para incluir gráficos en JPG => compilar con pdflatex.
+%\usepackage[pdftex]{graphicx}
+
+% Para incluir gráficos EPS => compilar con latex.
+\usepackage[dvips]{graphicx}
+
+% Para escribir en color...
+%
+% ... cuando compilamos con el comando ``latex''
+\usepackage[dvips,usenames]{color}
+% ... uando compilamos con el comando ``pdflatex''
+% \usepackage[pdftex,usenames,dvipsnames]{color}
+
+% Para realiza hiperenlaces
+\usepackage[pagebackref=true]{hyperref}
+\hypersetup{
+    bookmarks=true,         % barra de marcadores
+    unicode=false,          % caracteres non-Latin en marcadores de Acrobat
+    pdftoolbar=true,        % mostrar barra de herramientas de Acrobat
+    pdfmenubar=true,        % mostrar menú de Acrobat
+    pdffitwindow=false,     % ajustar ventana al ancho de página
+    pdfstartview={FitH},    % ajustar documento al ancho de página
+    pdftitle={Memoria PFG},    % título
+    pdfauthor={},     % autor
+    pdfsubject={},   % tema del documento
+    pdfcreator={},   % generador del documento
+    pdfproducer={}, % productor del documento
+    pdfkeywords={}, % lista de palabras clave
+    pdfnewwindow=true,      % enlaces en una nueva ventana
+    colorlinks=true,       % false: enlaces en caja; true: enlaces coloreados
+    linkcolor=blue,          % color de enlaces internos
+    citecolor=green,        % color de enlaces a bibliografía
+    filecolor=magenta,      % color de enlaces a ficheros
+    urlcolor=blue           % color de enlaces externos
+}
+
+% Espaciado y ajuste de márgenes
+\usepackage{setspace}
+\onehalfspacing
+% \doublespacing
+\setlength{\textwidth}{15cm}
+\setlength{\textheight}{22cm}
+
+% Para evitar lineas huérfanas
+\widowpenalty=10000
+\clubpenalty=10000
+
+% Paquete fancyhdr -> Para modificar la cabecera y pie de páginas.
+% http://tug.ctan.org/tex-archive/macros/latex/contrib/fancyhdr/
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhf[HR]{\thepage}
+\fancyhf[HL]{\nouppercase\rightmark}
+
+% Package booktabs -> Para mejorar el aspecto de las tablas o cuadros.
+% http://www.ctan.org/tex-archive/macros/latex/contrib/booktabs/
+\usepackage{booktabs}
+
+% Package rotating -> Para poder girar las tablas y dibujarlas a lo largo
+% del folio en vez de a lo ancho.
+\usepackage{rotating}
+
+% Packages multicol y multirow, para manejar tablas de filas y columnas múltiples.
+\usepackage{multicol}
+\usepackage{multirow}
+
+% Para empotrar código con resaltado
+\usepackage{listings, color}
+%Ahora toca configurar el entorno para el código fuente
+\definecolor{gray97}{gray}{.97}
+\definecolor{gray75}{gray}{.75}
+\definecolor{gray45}{gray}{.45}
+
+\lstset{ frame=Ltb,
+     framerule=0pt,
+     aboveskip=0.5cm,
+     framextopmargin=3pt,
+     framexbottommargin=3pt,
+     framexleftmargin=0.4cm,
+     framesep=0pt,
+     rulesep=.4pt,
+     backgroundcolor=\color{gray97},
+     rulesepcolor=\color{black},
+     %
+     stringstyle=\ttfamily,
+     showstringspaces = false,
+     basicstyle=\small\ttfamily,
+     commentstyle=\color{gray45},
+     keywordstyle=\bfseries,
+     %
+     numbers=left,
+     numbersep=15pt,
+     numberstyle=\tiny,
+     numberfirstline = false,
+     breaklines=true,
+   }
+
+% minimizar fragmentado de listados
+\lstnewenvironment{listing}[1][]
+   {\lstset{#1}\pagebreak[0]}{\pagebreak[0]}
+
+\lstdefinestyle{consola}
+   {basicstyle=\scriptsize\bf\ttfamily,
+    backgroundcolor=\color{gray75},
+   }
+
+\lstdefinestyle{SQL}
+   {language=SQL,
+   }
+
+\lstdefinestyle{Java}
+   {language=Java,
+   }
+
+\usepackage{url}
+
+
+% Personalizamos la separación entre párrafos...
+\parskip=6pt
+
+% Personalizamos el identado en la primera línea del nuevo párrafo...
+\parindent=10pt
+
+% Establecemos el número máximo de niveles de profundidad en las secciones.
+\setcounter{secnumdepth}{3}
+
+% Título
+\title{Título del proyecto}
+% Autor
+\author{Juan Dapena Paz}
+% Fecha
+\date{\today}
+
+
+\begin{document}
+
+	% \maketitle sirve para generar automática una portada predefinida, pero para un proyecto fin de carrera
+	%	de FIC no sirviría porque no cumple las normas de presentación. Podemos hacer dos cosas:
+	% 1. Usarla e ignorar las normas (y asumir las consecuencias que pueda tener)
+	% 2. Hacernos una portada en LaTeX que cumpla las normas (menos arriesgado)
+	%
+        \include{pfg_portada}
+
+	% Los proyectos de fin de carrera de FIC han de ir acompañados de una serie de documentos adicionales, algunos
+	% 	de ellos obligatorios (certificado, resumen, lista de palabras clave) y otros opcionales (dedicatoria
+	%	y agradecimientos).
+	%
+        \include{pfg_certificado}
+        \include{pfg_resumen}
+        \include{pfg_palabras_clave}
+        \include{pfg_dedicatoria}
+        \include{pfg_agradecimientos}
+
+
+	% FRONTMATTER: TOC, LOF, LOT y descripción/organización de la memoria.
+        \frontmatter
+
+        \tableofcontents
+        \listoffigures
+        \listoftables
+
+        \include{pfg_frontmatter_intro}
+
+
+	% MAINMATTER: El contenido, capítulo a capítulo, de la memoria del PFC.
+        \mainmatter
+
+	\include{pfg_main_010}
+	\include{pfg_main_020}
+	%\include{pfg_main_030}
+	%\include{pfg_main_040}
+	%\include{pfg_main_050}
+	%\include{pfg_main_060}
+
+
+	% INCLUIMOS LOS APÉNDICES...
+        \appendix
+	%\include{pfg_appendix_010}
+%         \include{pfg_appendix_020}
+
+
+	% INCLUIMOS LA BIBLIOGRAFÍA...
+	\nocite{*}	% Se usa para indicar en la bibliografía las referencias no citadas.
+	\bibliography{pfg_biblio}
+	\bibliographystyle{plain}
+
+\end{document}
+
