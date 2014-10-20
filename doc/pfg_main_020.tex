@@ -1,7 +1,94 @@
-%
-% T�TULO DEL CAP�TULO
-%
 \chapter[Generacion procedural de contenidos]{\label{identificadorReferenciaCruzada}
 Generacion procedural de contenidos}
+
+La generación procedural de contenidos, se refiere a la creación de contenido del juego automáticamente, hay distintos aspectos que se pueden hacer con esta generación de contenidos:\\
+
+\begin{itemize}
+	\item Actuaciones de NPC
+	\item Mapas y niveles
+	\item Historias y diálogos
+	\item Misiones
+	\item Armas
+	\item Personajes
+\end{itemize}
+
+Como se ha mencionado anteriormente, nos centraremos en la creación de contenido procedural de mapas y niveles, concretamente el proyecto irá centrado en la creación de mundos en 2D con ciudades que podrán verse en 3D al acercarte a estas.\\
+
+Hay varias distinciones que hay que realizar para la generación de contenidos:\\
+
+Una de ellas y la más importante, es si el juego es online u offline.\\
+
+Otra de las cosas  a tener en cuenta es que debemos de comprobar si el contenido generado es opcional o es necesario para el juego, ya que si es necesario debemos realizar algoritmos con mayor optimización que si es un contenido opcional.\\
+
+Por otro lado debemos tener en cuenta la utilización de  semillas aleatorias o de vectores con parámetros, ya que de ello dependerá el tipo de generación que queramos obtener.\\ 
+
+La elección de una generación estocástica o determinística dependerá de si queremos que el algoritmo nos genere una misma solución con distintos parámetros.\\
+
+Por último debemos de tener en cuenta si queremos generar de forma constructiva o generar y hacer un test en el que se mostraría la validez del resultado.\\
+
+\section{Búsquedas basadas en generación de contenido procedural:}
+
+Es un caso especial de generación y test de algoritmos para generación procedural de contenidos con la diferencia de que el test es una función que acepta o rechaza el candidato y esto se va guardando en un vector denominado fitness y también cuenta con un valor que se le ha asignado al nuevo candidato  al generarse, como puede verse en \ref{Figura1}.\\
+
+\begin{figure}[hpb]
+
+	\centering
+	\includegraphics[width=9cm]{./eps/fig1.eps}
+	\caption{Figure of ''Search-based Procedural Content Generation:
+	A Taxonomy and Survey'' by
+	Julian Togelius, Georgios N. Yannakakis, Kenneth O. Stanley, Cameron Browne}
+	\label{Figura1}
+
+\end{figure}
+
+Para la generación procedural de búsquedas son necesarias unas reglas que vayan asociadas a las mecánicas de juego, por ejemplo:\\
+
+{\bf Hom and Marks} generaron unas reglas que eran representadas en el juego y estaban basadas en una función de evaluación de simulación estática y la teoría impulsada.\\
+
+{\bf Browne} creó un sistema de diseño de reglas para direccionamiento usando programación genética, las reglas del juego estaban representadas en árboles, el lenguaje fue formulado para el proyecto.\\
+
+En la figura \ref{Figura2} podemos ver como se generan las reglas del juego:\\
+
+\begin{figure}[hpb]
+
+	\centering
+	\includegraphics[width=9cm]{./eps/fig2.eps}
+	\caption{Figure of ''Search-based Procedural Content Generation:
+	A Taxonomy and Survey'' by
+	Julian Togelius, Georgios N. Yannakakis, Kenneth O. Stanley, Cameron Browne}
+	\label{Figura2}
+
+\end{figure}
+
+\section{Representación del espacio de búsqueda:}
+
+Una distinción importante en la representación es entre la codificación directa o indirecta ya que una codificación directa implica una relativa simpleza computacional en el mapeo del genotipo-fenotipo, dado que en una computación compleja es necesario la creación del fenotipo desde el genotipo.\\
+
+
+\section{Funciones de evaluación:}	
+
+La evaluación es importante para ver las capacidades del algoritmo, para confirmar con garantía lo que puede crear y para comparar el contenido generado con otros contenidos.\\
+
+
+Para diseñar la función de evaluación el diseñador debe primero decidir cuánto quiere optimizar para fortalecer el diseño.\\
+
+
+Tres tipos de evaluación son:\\
+
+Evaluación directa por funciones: en la que directamente una función saca el valor del fitness del contenido generado.\\
+
+Evaluación simulada por funciones: en el que el contenido se va manipulando y se va evaluando.\\
+
+
+Evaluación interactiva: mientras el juego está en ejecución se evalúa la interacción con el personaje y se van generando los contenidos.\\
+
+\section{Construcción de terrenos y mapas:}
+
+Una forma de representar el terreno es en forma de expresiones de árboles y la evaluación en cada punto se determina mediante la consulta de árboles de expresión evolucionando y sustituyendo las coordenadas de la posición actual por coordenadas de las constantes del árbol.\\
+
+
+La  función de evaluación está basada en la {\bf teoría de accesibilidad} en la cual se evalúa el terreno en función de la pendiente.\\
+
+Para elegir las métricas apropiadas para la medición de la construcción es necesario esforzarse en la elección de medidas lo más lejanas posibles de los parámetros de entrada al sistema.\\
 
 

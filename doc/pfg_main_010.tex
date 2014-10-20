@@ -11,16 +11,43 @@ En aprendizaje no supervisado se refiere a búsquedas de patrones, es decir en b
 
 Los algoritmos evolutivos van dirigidos a la optimización estocástica de la generación de la base del juego, los más utilizados son colonias de hormigas y algoritmos genéticos.\\
 
-En la siguiente tabla se muestran las diferentes relaciones entre las investigaciones nombradas anteriormente y los algoritmos usados en esa investigación.\\
+En \ref{Tabla1} se muestran las diferentes relaciones entre las investigaciones nombradas anteriormente y los algoritmos usados en esa investigación.\\
 
 
-\begin{figure}[htb]
-  \centering
-    \includegraphics[width=15cm]{./eps/tabla1.eps}
-    \vspace{2cm}
-  \caption{Tabla1}
-  \label{fig:ejemplo}
-\end{figure}
+\begin{table}
+
+\begin{center}
+	\resizebox{15cm}{!}{  
+	\begin{tabular}{ l || c | c | c | c | c | c | c | c | c | c}
+		& NPC & S\&P & PM & PCG & CN & BA & AI-Ass. & GGAI & Com.AI & Total(Dominant)\\
+   		\hline
+   		\hline 
+   			Evolutionary Computation & \ding{108} &  & \ding{108} & \ding{108} & &  \ding{109} & \ding{108} & \ding{109} & &  6(4)  \\
+   		\hline
+    		Reinforcement Learning& \ding{108} &  &  &  & & \ding{109} & & \ding{108}  & & 3(1)  \\
+    	\hline
+        	Supervised Learning& \ding{109} &  & \ding{108} &  & & \ding{108} & &  &\ding{108} & 4(2) \\
+    	\hline
+    		Unsupervised Learning&  &  & \ding{108} &  & \ding{109} &  & \ding{109} &  & & 3(1)\\
+    	\hline
+   			Planning&  & \ding{108} &  & \ding{109} &  \ding{108} & \ding{108} & \ding{108} &  & \ding{108} & 6(5)\\
+ 		\hline
+ 			Tree Search&  & \ding{108} &  &  & \ding{109} & \ding{109} & \ding{109} & \ding{108} & \ding{108} & 6(3)\\
+		\hline
+		\hline
+			Total(Dominant)& 3(2) & 2(2)  & 3(3)  & 2(1)  & & 3(1)  & 5(2)  & 4(2)  & 3(1) & 3(2) \\
+		\hline
+		\hline
+ 	\end{tabular}
+	}
+\end{center}
+%Sale cuadro en vez de tabla, y quiero cambiar la ref y aparece mal en el índice de cuadros
+\caption{Figure of ''A Panorama of Artificial and Computational Intelligence in Games'' by
+Georgios N. Yannakakis, Member, IEEE, and Julian Togelius, Member, IEEE} \label{Tabla1}
+\end{table}
+
+
+
 
 \section*{Perspectiva del jugador:}
 
@@ -46,15 +73,48 @@ Uno de los principales nodos de influencia es el aprendizaje del comportamiento 
 
 Por otra parte la planificación y búsquedas también ayudan a la generación de agentes e historias, además de contenido para el juego.\\
 
-En la tabla \ref{fig:ejemplo} aparece la interacción entre las distintas investigaciones:\\
+En la tabla \ref{Tabla2} aparece la interacción entre las distintas investigaciones:\\
 
-\begin{figure}[htb]
-  \centering
-    \includegraphics[width=15cm]{./eps/tabla2.eps}
-    \vspace{2cm}
-  \caption{Tabla2}
-  \label{fig:ejemplo}
-\end{figure}
+
+\begin{table}[hpb]
+
+\begin{center}
+	\resizebox{15cm}{!}{  
+	\begin{tabular}{ l || c | c | c | c | c | c | c | c | c | c}
+		& NPC & S\&P & PM & AI Bench. & PCG & CN & BA & AI-Ass. & GGAI & Com.AI\\
+   		\hline
+   		\hline 
+   			NPC & - &  & \ding{109} & \ding{109} & \ding{109} &   & \ding{109} & \ding{109} & \ding{108} &  \\
+   		\hline
+    		S\&P& \ding{109} & - &  & \ding{109} & \ding{109} & \ding{108} &\ding{108} &   & \ding{108} & \ding{109}  \\
+    	\hline
+        	PM&  &  & - &  & \ding{109} & \ding{109} & \ding{109} & \ding{77}  & & \ding{109} \\
+    	\hline
+    		AI Bench.& \ding{108} & \ding{109} & \ding{109} & - & \ding{109} &  & \ding{109} &  & \ding{108}& \ding{77}\\
+    	\hline
+   			PCG & \ding{109} & \ding{77} &  &  \ding{109} & - &  &  & \ding{109} & \ding{77} & \ding{109}\\
+ 		\hline
+ 			CN  &  &  & &  & \ding{109} & - & \ding{77} &  &  & \ding{109}\\
+		\hline
+			BA&  &   & \ding{109}  & \ding{109}  & & \ding{109}  & -  &   & & \ding{77} \\
+		\hline
+			AI-Ass&  &   &   &   & \ding{77} & \ding{77}  & \ding{109}  & -  &  & \ding{109} \\
+		\hline
+			GGAI& \ding{77} & \ding{77}  & \ding{77}  & \ding{77}  &\ding{109} &  &   & \ding{77}  & - &\\
+		\hline
+			Com.AI& \ding{109} & \ding{109}  & \ding{109}  &   & \ding{109} &   &   &   &  & - \\
+		\hline
+		\hline
+ 	\end{tabular}
+	}
+\end{center}
+\caption{Figure of ''A Panorama of Artificial and Computational Intelligence in Games'' by
+Georgios N. Yannakakis, Member, IEEE, and Julian Togelius, Member, IEEE} \label{Tabla2}
+\end{table}
+
+
+
+
 
 \section{Elección:}
 
