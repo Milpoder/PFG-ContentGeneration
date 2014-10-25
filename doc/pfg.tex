@@ -24,8 +24,6 @@
 \usepackage[spanish]{babel}
 \usepackage[utf8x]{inputenc}
 \usepackage{morefloats}
-\renewcommand{\listtablename}{Índice de tablas}
-\renewcommand{\tablename}{Tabla}
 
 % puede que queramos usar el símbolo del euro.
 \usepackage{eurosym}
@@ -180,6 +178,8 @@
 
 
 \begin{document}
+	\renewcommand{\listtablename}{Índice de tablas}
+	\renewcommand{\tablename}{Tabla}
 
 	% \maketitle sirve para generar automática una portada predefinida, pero para un proyecto fin de carrera
 	%	de FIC no sirviría porque no cumple las normas de presentación. Podemos hacer dos cosas:
@@ -230,6 +230,7 @@
 	\nocite{*}	% Se usa para indicar en la bibliografía las referencias no citadas.
 	\bibliography{pfg_biblio}
 	\bibliographystyle{plain}
+	
 
 \end{document}
 
