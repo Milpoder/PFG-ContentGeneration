@@ -1,5 +1,5 @@
-\chapter[Diseño de Algoritmos]{\label{identificadorReferenciaCruzada}
-Diseño de algoritmos}
+\chapter[Motores de Juego]{\label{identificadorReferenciaCruzada}
+Motores de Juego}
 
 
 Un motor de juego, es una herramienta software diseñada para asistir a los desarrolladores en la tarea de creación de juegos y aplicaciones gráficas\cite{B9}.
@@ -86,101 +86,9 @@ Si nos fijamos en el punto de licencias, Unity cuenta con una versión gratuita 
 
 Una vez estudiado todas las características que nos proporcionan los motores que más se usan en el mercado, podemos decir que Unity es el que más nos beneficiará para el desarrollo del proyecto.
 
-\section{Selección de software de Modelado:}
-
-Como de motor hemos seleccionado Unity, nos centramos en los programas de modelado que son compatible con Unity y vemos que existen los siguientes:
-
-\begin{itemize}
-	\item 3D Studio Max: este es un software bastante potente, acepta lenguajes de programación para generar algoritmos, pero con una licencia bastante cara, por lo que lo descartamos.
-	\item Blender: software libre de modelado en 3D, es de los más utilizados, pero está capado en la geeración de algoritmos, por lo que no nos interesa.
-	\item Autodesk Maya 3D: este es un software bastante completo, acepta su propio lenguaje de programación ''Mel'' pero también acepta algoritmos en Python, la licencia es bastante cara, pero al ser estudiante, Autodesk te regala una licencia de tres años, por lo que realizaremos los algoritmos para este software.
-\end{itemize}
-
-\section{Algoritmos:}
-
-Con las herramientas mencionadas en los puntos anteriores, se han generado tres algoritmos que generan ciudades para la biblioteca, dos de ellos se han programado en Mel y otro en Python para comparar.
-
-El primer algoritmo realizado en Mel y el tercero realizado en Python son muy similares, mientras que el segundo, realizado en MEl, es el algoritmo más complejo y al que dedicaremos más tiempo a su explicación.
-
-\subsection{Primer algoritmo:}
-
-Este algoritmo tiene una estructura bastante simple, está divido en tres partes, la primera comprueba si el GUI está creado y si no, crea uno nuevo donde leer los parámetros para generar las ciudades. La segunda parte es donde se genera la ciudad, en esta parte se utilizan los parámetros leídos anteriormente para recorrer una matriz e ir creando edificios aleatorios que se van reescalando para que todos tengan un mismo tamaño y la ciudad quede uniforme, por otro lado, la última parte realiza una limpieza de memoria para que no ocupe mucho espacio en memoria. En las figuras \ref{Figura4} y \ref{Figura5}, podemos ver la GUI de este algoritmo y una ejecución.
-
-\begin{figure}[h] % indico que voy a poner una figura y [h] indica que la posición relativa, tambien puedo usar t = top entre otros.
-
-\hfill
-\begin{minipage}[t]{.45\textwidth}
-\begin{center}
-\epsfig{file=./eps/GUIprimera.eps, scale=0.4} % primera imagen colocada a la izquierda
-\caption{Interfaz gráfica del primer algoritmo.}
-\label{Figura4}
-\end{center}
-\end{minipage}
-\hfill
-\begin{minipage}[t]{.45\textwidth}
-\begin{center}
-\epsfig{file=./eps/primeralgoritmo.eps, scale=0.3} % segunda imagen colocada a la derecha 
-\caption{Ejecución del primer algoritmo}
-\label{Figura5}
-\end{center}
-\end{minipage}
-\hfill
-\end{figure}
-
-\subsection{Segundo algoritmo:}
-
-Este algoritmo es el más sofisticado y complejo, consta de los siguientes pasos:
-
-\begin{itemize}
-	\item En primer lugar comprobamos la versión de Autodesk Maya, ya que según la versión, utiliza unas aristas u otras.
-	\item Tras el primer paso, comprobamos si no existe la ventana y si no existe, la crea, con dos botones que son princiales, en el primero genera la malla sobre la que se construirán los edificios, mientras que en la segunda se construyen los edificios.
-	\item Para cada edificio, se genera un cuadrado principal, se separa aleatoriamente en plantas, siendo la distancia la misma en cada uno, se incluyen rectángulos para generar ventanas de forma seudo-aleatoria, se le coloca un cuadrado (o varios) en la parte superior y un cilindro con radio cero en uno de los extremos, se le inserta como antena si se ha seleccionado en el menú. Los edificios suelen ocupar un cuadrado de la malla, aunque si se desea se le puede cambiar el parámetro, para que todos tengan un tamaño parecido y no se quede estéticamente mal, se realiza como en los otros algoritmos un reescalado.
-\end{itemize}
-
-En las figuras \ref{Figura6} y \ref{Figura7} se muestra la interfaz y una ejecución realizada con el algoritmo.
-
-\begin{figure}[h]
-
-\hfill
-\begin{minipage}[t]{.45\textwidth}
-\begin{center}
-\epsfig{file=./eps/GUIsegunda.eps, scale=0.3} % primera imagen colocada a la izquierda
-\caption{Interfaz gráfica del segundo algoritmo.}
-\label{Figura6}
-\end{center}
-\end{minipage}
-\hfill
-\begin{minipage}[t]{.45\textwidth}
-\begin{center}
-\epsfig{file=./eps/segundoalgoritmo.eps, scale=0.2} % segunda imagen colocada a la derecha 
-\caption{Ejecución del segundo algoritmo}
-\label{Figura7}
-\end{center}
-\end{minipage}
-\hfill
-\end{figure}
-
-\subsection{Tercer algoritmo:}
-
-Este algoritmo es parecido al primero, tiene una estructura similar aunque varía la forma de generar las ciudades, ya que en este caso los edificios son leídos de un fihcero y se van insertando en la matriz con un random, de manera que si se modifica el fichero,  cualquier persona podrá generar los edificios que vea necesarios en su juego, esto se puede realizar de una maenra bastante simple, mientras que en el primer algoritmo no ocurría eso. La primera y tercera parte si son iguales, dado que se comprueba si la GUI existe y en caso de que no exista se abre y se obtienen los valores introducidos de esta y en la tercera se limpia la memoria para eliminar temporales. En las figuras \ref{Figura8} y \ref{Figura9} podemos ver la GUI y una ejecución de este algoritmo.
-
-\begin{figure}[h!]
-
-	\centering
-	\includegraphics[width=8cm]{./eps/GUItercera.eps}
-	\caption{Interfaz gráfica del tercer algoritmo.}
-	\label{Figura8}
-
-\end{figure}
-
-\begin{figure}[h!]
-
-	\centering
-	\includegraphics[width=8cm]{./eps/terceralgoritmo.eps}
-	\caption{Ejecución del tercer algoritmo}
-	\label{Figura9}
-
-\end{figure}
 
 \newpage
+
+
+
 
