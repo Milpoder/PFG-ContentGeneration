@@ -1,0 +1,300 @@
+//Declaración de variables.
+
+global int $NormalCaras, $Normalesusadas;
+global string $Nodos[];
+global string $sel[], $control;
+global string $t1, $t2, $t3, $t4, $t5, $htexto;
+global string $field1, $field2, $field3, $slider1, $slider2, $slider3, $generarClusters, $GenerarEdificios, $final, $GenerarControl, $CargaControl, $comprobacion;
+
+//Si no existe la ventana, creamos una nueva.
+
+if(!`window -ex Algoritmo1`){
+    global int $quarter;
+    global string $field1, $field2, $slider1, $slider2, $final, $GenerarControl, $CargaControl;
+    string $ventana = `window -t "Primer algoritmo" Algoritmo1`;
+    string $myLayout = `formLayout`;
+    window -e -wh 500 330 -s false $ventana;
+    formLayout -e -w 500 -h 330 $myLayout;
+    
+    $t1 = `text -l "Numero de subdivisiones" text1`;
+    $field1 = `intField -v 10 -min 5 -max 100 -w 50 -cc "updateSlider(1); updateField(1);" -dc "updateSlider(1); updateField(1);" field1`;
+    $field2 = `intField -v 10 -min 5 -max 100 -w 50 -cc "updateSlider(2); updateField(2);" -dc "updateSlider(2); updateField(2);" field2`;
+    $slider1 = `intSlider -v 10 -min 5 -max 100 -w 100 -dc "updateField(1)" slider1`;
+    $slider2 = `intSlider -v 10 -min 5 -max 100 -w 100 -dc "updateField(2)" slider2`;
+    $t2 = `text -l "Ancho" textw`;
+    $t3 = `text -l "Largo" textd`;
+    $GenerarControl = `button -l "Generar Control" -w 100 -c "gotoCreate(1)" create`;
+    separator -w 500 -en false sep1;
+    $generarClusters = `button -l "Generar divisiones" -w 50 -en false -c "generateClusters()" createc`;
+    $comprobacion = `checkBox -l "Rotar edificios" -v false -en false -w 300 normalCheck`;
+    separator -w 500 -en false sep2;
+    $GenerarEdificios = `button -l "Generar edificios" -w 50 -en false -c "populate()" population`;
+    $t4 = `text -l "Pulsa otra vez oara regenerar edificios" -font "smallPlainLabelFont" -en false regen`;
+    
+    $htexto = `text -l "Altura máxima de edificios" -font "smallPlainLabelFont" -en false htexto`;
+    $field3 = `floatField -v 10 -min 0.1 -max 100 -precision 1 -s 0.5 -en false -w 50 -cc "updateFSlider(3); updateFField(3);" /*-dc "updateFSlider(3); updateFField(3);"*/ field3`;
+    $slider3 = `floatSlider -v 10 -min 0.1 -max 100 -en false -w 100 -dc "updateFField(3)" slider3`;
+    
+    separator -w 500 -en false sep3;
+    $final = `button -l "Finalizar" -en false -c "finalStep(); deleteUI -window Algoritmo1;" end`;
+    $t5 = `text -l "Eliminar temporales" -font "smallPlainLabelFont" -en false endtext`;
+        
+    formLayout -e
+    -af text1 "top" 30 -af text1 "left" 10
+    -ac textw "left" 30 text1 -af textw "top" 15
+    -ac textd "left" 30 text1 -af textd "top" 45
+    -ac slider1 "left" 30 textw -af slider1 "top" 15
+    -ac field1 "left" 10 slider1 -af field1 "top" 10
+    -ac slider2 "left" 28 textd -af slider2 "top" 45
+    -ac field2 "left" 10 slider2 -ac field2 "top" 10 field1
+    -af create "left" 145 -af create "top" 75 -af create "right" 145
+    //-af load "right" 145 -af load "top" 75
+    -af sep1 "top" 110
+    -af normalCheck "top" 165 -af normalCheck "left" 145
+    -af createc "left" 200 -af createc "right" 200 -af createc "top" 120
+
+    -ac sep2 "top" 10 createc
+    
+    -af slider3 "top" 192 -af slider3 "left" 200 -af slider3 "right" 200
+    -ac htexto "right" 15 slider3 -af htexto "top" 192
+    -ac field3 "left" 10 slider3 -af field3 "top" 190
+    -af population "left" 200 -af population "right" 200 -ac population "top" 10 slider3
+    -ac regen "top" 5 population -af regen "top" 200 -af regen "left" 100 -af regen "right" 100
+    
+    -af sep3 "top" 270
+    -af end "left" 200 -af end "right" 200 -ac end "top" 10 sep3
+    -ac endtext "top" 5 end -af endtext "top" 220 -af endtext "left" 100 -af endtext "right" 100
+
+    $myLayout;
+    updateField(1); updateField(2);
+    showWindow $ventana;
+}
+
+//Actualizar campos
+
+global proc updateField(int $whichField){
+    global string $field1, $field2, $slider1, $slider2;
+    string $field = $field2;
+    string $slider = $slider2;
+    float $redV, $greenV;
+    
+    if($whichField==1){$field = $field1; $slider = $slider1;}
+    $slider = `intSlider -q -v $slider`;
+    $redV = ((float)$slider/100) - 0.04;
+    $greenV = 1 - $redV;
+    intField -e -v ((int)$slider) -bgc $redV $greenV 0 $field;    
+}
+
+//Cargar slider
+
+global proc updateSlider(int $whichSlider){
+    global string $field1, $field2, $slider1, $slider2;
+    string $field;
+    string $slider = $slider2;
+    if($whichSlider==1){$slider = $slider1;}
+    $field = `getFieldValue($whichSlider)`;
+    intSlider -e -v ((int)$field) $slider;
+    
+}
+
+//Actualizar campos
+
+global proc updateFField(int $whichField){
+    global string $field3, $slider3;
+    float $redV, $greenV;
+
+    $slider = `floatSlider -q -v $slider3`;
+    $redV = ((float)$slider/50);
+    $greenV = 1 - $redV;
+    floatField -e -v $slider -bgc $redV $greenV 0 $field3;    
+}
+
+//Actualizar slider
+
+global proc updateFSlider(int $whichSlider){
+    global string $field3, $slider3;
+    $field = `floatField -q -v ($field3)`;
+    floatSlider -e -v ((float)$field) $slider3;
+    
+}
+
+//obtener valores de campos
+
+global proc int getFieldValue(int $whichField){
+    global string $field1, $field2;
+    string $field = $field2;
+    if($whichField==1){$field = $field1;}
+    return `intField -q -v $field`;
+}
+
+//llamada para generar
+
+global proc gotoCreate(int $flag){
+    global string $t1, $t2, $t3, $Nodos[];
+    global string $generarClusters, $control, $GenerarControl, $CargaControl, $field1, $field2, $slider1, $slider2, $comprobacion;
+    if($flag == 1){
+        createControl(`getFieldValue(1)`, `getFieldValue(2)`);
+        button -e -en true $generarClusters;
+    }else{
+        string $seleccionado[];
+        $isSel = `ls -sl`;
+        if(size($isSel) > 0){
+            button -e -en true $generarClusters;
+            $control = $seleccionado[0];
+            string $selObj[] = `ls -sl`;
+            string $children[] = `listRelatives -c`;
+            select -adn;
+            string $inputNode[] = `ls -sl`;
+            $Nodos[1] = $inputNode[(size($inputNode)-3)];
+        }
+    }
+    button -e -en false $GenerarControl;
+    //button -e -en false $CargaControl;
+    intField -e -en false $field1;
+    intField -e -en false $field2;
+    intSlider -e -en false $slider1;
+    intSlider -e -en false $slider2;
+    text -e -en false $t1;
+    text -e -en false $t2;
+    text -e -en false $t3;
+}
+
+//Generar control
+
+global proc createControl(int $W, int $D){
+    global string $sel[], $control;
+    global string $Nodos[];
+    string $Nodos[] = `polyPlane -w 1 -h 1 -sx $W -sy $D`;
+    scale -a 100 1 100;
+    $sel = `ls -sl`;
+    select -r $sel[0];
+    $control = $sel[0];
+}
+
+//Generar Clusters
+
+global proc generateClusters(){
+    global int $NormalCaras, $Normalesusadas;
+    global string $t4;
+    global string $generarClusters, $GenerarEdificios, $control, $htexto, $field3, $slider3, $comprobacion;
+    select $control;
+    PolySelectConvert 1;
+    string $faces[] = `ls -sl`;
+    $faces = `filterExpand -sm 34`;
+    $NormalCaras = size($faces);
+    int $i;
+    select -cl;
+    int $state=`optionVar -q polyKeepFacetsGrouped`;
+    if($state) togglePolyMoveComponents;
+    select $control;
+    PolySelectConvert 1;
+    string $allFaces[] = `ls -sl`;
+    polyChipOff -ch 1 -kft 0 -dup 0 -off 0 $allFaces;
+    select $control;
+    polySeparate;
+    CenterPivot;
+    togglePolyMoveComponents;
+        
+    button -e -en false $generarClusters;
+    button -e -en true $GenerarEdificios;
+    text -e -en true $t4;
+    text -e -en true $htexto;
+    floatField -e -en true $field3;
+    floatSlider -e -en true $slider3;
+    checkBox -e -en true $comprobacion;
+    updateFField(3);
+    select -cl;
+}
+
+//Generacion procedural
+
+global proc populate(){
+    if(`objExists buildings_grp`){ select -r buildings_grp; delete; }
+    global string $sel[], $control, $final, $field3, $comprobacion;
+    global int $NormalCaras, $Normalesusadas;
+    global string $Nodos[], $t5;
+    int $i = $NormalCaras;
+    //$i--;
+    float $cellSize[];
+    select -r $control;
+    $sel[0] = $control;
+    float $containerScale[] = `xform -q -r -s`;
+    float $subDiv[2];
+    string $subDivStr = $Nodos[1] + ".subdivisionsWidth";
+    $subDiv[0] = `getAttr $subDivStr`;
+    $cellSize[0] = $containerScale[0] / $subDiv[0];
+    $subDivStr = $Nodos[1] + ".subdivisionsHeight";
+    $subDiv[1] = `getAttr $subDivStr`;
+    $cellSize[1] = $containerScale[2] / $subDiv[1];
+    CreateEmptyGroup;
+    rename "buildings_grp";
+    for($i; $i > 0; $i--){
+            if(!`objExists ("palazzo_" + $i)`){
+                string $face = "polySurface" + $i;
+                polyCube -w 1 -h 1 -d 1 -sx 2 -sy 3 -sz 2 -n ("palazzo_" + $i);
+                select -r $face; select -add ("palazzo_" + $i);
+                $Normalesusadas = `checkBox -q -v $comprobacion`;
+                if($Normalesusadas == 0){
+                   parentConstraint; 
+                }else{
+                    parentConstraint -sr "x" -sr "y" -sr "z";
+                    select -r $face;
+                    select -add ("palazzo_" + $i);
+                    normalConstraint -aim 0 1 0;
+                }
+                
+                select -r ("palazzo_" + $i);
+                xform -piv 0 -0.5 0;
+                select ("palazzo_" + $i);
+                move -r 0 0.5 0;
+                float $actualScale[] = `xform -q -r -s`;
+                float $randX = rand(0, $cellSize[0]);
+                
+                float $Ymax = `floatField -q -v $field3`;
+                float $randY = rand(0, $Ymax);
+                
+                float $randZ = rand(0, $cellSize[1]);
+                $actualScale[0] += $randX;
+                $actualScale[2] += $randZ;
+                scale -a $actualScale[0] $randY $actualScale[2];
+                select -r ("palazzo_" + $i);
+                select -add buildings_grp;
+                parent;                
+                select -cl;
+        }
+    }
+    button -e -en true $final;
+    text -e -en true $t5;
+}
+
+//Paso final
+
+global proc finalStep(){
+    global int $NormalCaras;
+    global string $Nodos[];
+    global string $sel[], $control, $comprobacion;
+    int $i = $NormalCaras;
+    for($i; $i > 0; $i--){
+        if(`objExists ("palazzo_" + $i)`){
+            select ("palazzo_" + $i + "_parentConstraint1");
+            delete;
+            if(`objExists ("palazzo_" + $i + "_normalConstraint1")`){
+                select ("palazzo_" + $i + "_normalConstraint1");
+                delete;
+            }
+            select -r ("palazzo_" + $i);
+            rename ("building_" + $i);
+        }
+    }
+    select $control;
+    delete;
+    select buildings_grp;
+    rename "quarter_1";
+    CenterPivot;
+    select -cl;
+    $NormalCaras = 0;
+    clear($Nodos);
+    //clear($sel);
+    $control = "";
+    $comprobacion = "";
+}

@@ -1,0 +1,2051 @@
+//Algoritmo 2
+
+global proc SecondAlgorithmexecute ()
+{
+	global string $gSelect;
+	setToolTo $gSelect;
+
+	string $sel[] = `ls -sl`;
+	if (size($sel) == 0) return;
+
+	string $faceList[];
+
+	string $meshName[];
+	tokenize $sel[0] "." $meshName;
+	if (`nodeType $sel[0]` == "transform")
+	{
+		string $shape[] = `listRelatives -s $sel[0]`;
+		if (`nodeType $shape[0]` == "mesh")
+		{
+			makeIdentity -a 1 -t 1 -r 1 -s 1 $sel[0];
+			delete -ch $sel[0];
+			int $faceCount[] = `polyEvaluate -f $sel[0]`;
+			select ($sel[0] + ".f[0:" + ($faceCount[0] - 1) + "]");
+		}
+		else
+		{
+			error "Solo funciona con poligonos ortogonales.";
+		}	
+	}
+	else
+	{
+		if (`nodeType $sel[0]` != "mesh")
+		{
+			error "Please select some polygons!";
+		}
+		else
+		{
+			select -r $meshName[0];
+			makeIdentity -a 1 -t 1 -r 1 -s 1 $meshName[0];
+			delete -ch $meshName[0];
+			select -r $sel;
+		}
+	}
+
+	string $detailGeo[];
+	string $faceName;
+	string $resultGeo;
+
+	$faceList = `ls -sl -fl`;
+
+	if (size($faceList) == 0) return;
+
+	string $buildingGrp = `createNode transform -n "building_grp"`;
+	string $suffix[];
+	tokenize $buildingGrp "_" $suffix;
+
+	global string $SecondAlgorithmcolors[];
+	string $colorNames1[] = {$SecondAlgorithmcolors[7],$SecondAlgorithmcolors[8],$SecondAlgorithmcolors[11],$SecondAlgorithmcolors[12],$SecondAlgorithmcolors[13],$SecondAlgorithmcolors[14],$SecondAlgorithmcolors[15],$SecondAlgorithmcolors[16]};
+	string $colorNames2[] = {$SecondAlgorithmcolors[9],$SecondAlgorithmcolors[10],$SecondAlgorithmcolors[11],$SecondAlgorithmcolors[12],$SecondAlgorithmcolors[13],$SecondAlgorithmcolors[14],$SecondAlgorithmcolors[15],$SecondAlgorithmcolors[16]};
+	
+	SecondAlgorithmprogressWindow (size($faceList)) "Construyendo ...";
+
+	string $clumpVerts[] = SecondAlgorithmselectClumpVertices ($meshName[0]);
+
+	int $count = 1;
+	for ($f in $faceList)
+	{
+		progressBar -e -s 1 SecondAlgorithmProgress;
+		
+		refresh;
+
+		float $dropout = rand(1,10);
+		if ($dropout > (`floatFieldGrp -q -v1 dropout`) / 10 + 1)
+		{
+			float $heightMin = `floatFieldGrp -q -v1 heightRange`;
+			float $heightMax = `floatFieldGrp -q -v2 heightRange`;
+			float $randomHeight = rand($heightMin,$heightMax);
+
+			select (`polyListComponentConversion -ff -tv $f`);
+			string $buildVerts[] = `ls -sl -fl`;
+			
+			select -r (`polyListComponentConversion -ff -te $f`);
+			string $edgeList[] = `ls -sl`;
+			float $vertPos[] = `xform -q -ws -t $edgeList[0]`;
+			string $loc1[] = `spaceLocator`;
+			string $loc2[] = `spaceLocator`;
+			move -a $vertPos[0] $vertPos[1] $vertPos[2] $loc1[0];
+			move -a $vertPos[3] $vertPos[4] $vertPos[5] $loc2[0];
+			setAttr ($loc1[0] + ".rotateOrder") 2;
+			delete(`aimConstraint -aim 1 0 0 -u 0 1 0 $loc2[0] $loc1[0]`);
+			float $orient = `getAttr ($loc1[0] + ".ry")`;
+			delete $loc1[0] $loc2[0];
+			select -cl;
+
+			$faceName = SecondAlgorithminnerExtrude ($f, $meshName[0]);
+			float $lengthValue = SecondAlgorithmgetLongestEdge ($faceName);
+			$detailGeo = SecondAlgorithmfirstLevelExtrude ( $faceName, $lengthValue, $meshName[0], $randomHeight );
+
+			string $colorString;
+			int $randColor = rand(0,7.9);
+
+			if (($heightMax / 3) * 2 < $randomHeight)
+			{
+				$colorString = $colorNames2[$randColor];
+			}
+			else
+			{
+				$colorString = $colorNames1[$randColor];
+			}
+
+			SecondAlgorithmautoLayoutUVs ( $faceName, 1, $colorString, "" );
+
+			if (size($detailGeo) > 0)
+			{
+				select -r $faceName;
+				select -add $detailGeo;
+				string $finalGeo[] = `polyUnite -ch 0`;
+				$finalGeo[0] = `rename $finalGeo[0] ($suffix[1] + "_building_geo" + $count)`;
+				parent $finalGeo[0] $buildingGrp;
+				$resultGeo = $finalGeo[0];
+			}
+			else
+			{
+				string $finalGeo = `rename $faceName ($suffix[1] + "_building_geo" + $count)`;
+				parent $finalGeo $buildingGrp;
+				$resultGeo = $finalGeo;
+			}
+			$count ++;
+		
+
+			select $resultGeo;
+			CenterPivot;
+			float $bbox[] = `xform -q -bb $resultGeo`;
+			float $pivot[] = `xform -q -rp $resultGeo`;
+			xform -a -rp $pivot[0] $bbox[1] $pivot[2] -sp $pivot[0] $bbox[1] $pivot[2] $resultGeo;
+
+			string $commonVerts = `stringArrayIntersector`;
+			stringArrayIntersector -e -i $clumpVerts $commonVerts;
+			stringArrayIntersector -e -i $buildVerts $commonVerts;
+			string $vertList[] = `stringArrayIntersector -q $commonVerts`;
+			deleteUI $commonVerts;
+			int $noRotate = 0;
+			if (size($vertList) > 0)
+			{
+				float $vertPos[] = `xform -q -ws -t $vertList[0]`;
+				float $moveX;
+				float $moveZ;
+				if (abs($vertPos[0] - $bbox[0]) < abs($vertPos[0] - $bbox[3]))
+					$moveX = $vertPos[0] - $bbox[0];
+				else
+					$moveX = $vertPos[0] - $bbox[3];
+				if (abs($vertPos[2] - $bbox[2]) < abs($vertPos[2] - $bbox[5]))
+					$moveZ = $vertPos[2] - $bbox[2];
+				else
+					$moveZ = $vertPos[2] - $bbox[5];
+				move -r $moveX 0 $moveZ $resultGeo;
+				$noRotate = 1;
+			}
+
+			rotate -r -ws 0 $orient 0 $resultGeo;
+			
+			if (`checkBox -q -v rotateCheck` && $noRotate == 0)
+			{
+				int $rotateOccur = `floatFieldGrp -q -v1 rotateOccur`;
+				int $rotateRand = rand(0,10.9);
+				if ($rotateRand > 10 - $rotateOccur) rotate -r -ws 0 (rand(-90,90)) 0 $resultGeo;
+			}
+		}
+		else if (`checkBox -q -v dropoutLocator` == 1)
+		{
+			if (!`objExists "SecondAlgorithm_filler_grp"`) createNode transform -n "SecondAlgorithm_filler_grp";
+
+			string $extrude[] = `polyExtrudeFacet -ch 1 $f`;
+			float $randScale = rand(0.25,0.6);
+			setAttr ($extrude[0] + ".localScale") -type double3 $randScale $randScale $randScale;
+			setAttr ($extrude[0] + ".random") 0.6;
+			string $poke[] = `polyPoke -ch 1 $f`;
+			select -r (`polyListComponentConversion -ff -tv $f`);
+			string $verts[] = `ls -sl -fl`;
+			for ($v in $verts)
+			{
+				float $pos[] = `xform -q -ws -t $v`;
+				if (rand(0,10) > 2)
+				{
+					string $filler[] = `spaceLocator`;
+					move -a -ws $pos[0] $pos[1] $pos[2] $filler[0];
+					parent $filler[0] SecondAlgorithm_filler_grp;
+				}
+			}
+			delete $poke[0] $extrude[0];
+		}
+	}
+
+	if (`checkBox -q -v applyCombine` && size($faceList) > 1)
+	{
+		select -r $buildingGrp;
+		string $finalGeo[] = `polyUnite -ch 0`;
+		rename $finalGeo[0] ("building_geo");			
+	}
+
+	deleteUI icProgressWindow;
+	select -cl;
+
+	if (`menuItem -q -cb autoFlush` == 1) flushUndo;
+}
+
+global proc string SecondAlgorithminnerExtrude ( string $polyName, string $meshName )
+{
+
+	float $scaleRangeLow = `floatFieldGrp -q -v1 scaleRange`;
+	float $scaleRangeHi = `floatFieldGrp -q -v2 scaleRange`;
+	float $randSX = rand($scaleRangeLow,$scaleRangeHi);
+	float $randSY = rand($scaleRangeLow,$scaleRangeHi);
+
+
+	float $bboxPoly[] = `xform -q -ws -bb $polyName`;
+
+
+	string $tempCopy[] = `duplicate -rr -rc $meshName`;
+	string $faceStringList[];
+	tokenize $polyName "[" $faceStringList;
+	int $faceNum = `substring $faceStringList[1] 1 (size($faceStringList[1]) - 1)`;
+	delete ($tempCopy[0] + ".f[" + $faceNum + "]");
+	float $areaOriginal[] = `polyEvaluate -wa $meshName`;
+	float $areaCopy[] = `polyEvaluate -wa $tempCopy[0]`;
+	float $areaSource = $areaOriginal[0] - $areaCopy[0];
+	string $cubeBase[] = `polyCreateFacet -ch 0 -s 1 
+								-p $bboxPoly[3] $bboxPoly[1] $bboxPoly[2] 
+								-p $bboxPoly[0] $bboxPoly[1] $bboxPoly[2] 
+								-p $bboxPoly[0] $bboxPoly[1] $bboxPoly[5] 
+								-p $bboxPoly[3] $bboxPoly[1] $bboxPoly[5]`;
+	select -r $cubeBase[0];
+	CenterPivot;
+	select -cl;
+	float $areaBase[] = `polyEvaluate -wa $cubeBase[0]`;
+
+	float $shrink = 1 / sqrt(1 / ($areaSource / $areaBase[0]));
+	scale -a $shrink $shrink $shrink $cubeBase[0];
+	makeIdentity -a 1 -t 1 -r 1 -s 1 $cubeBase[0];
+	delete $tempCopy[0];
+
+	$meshName = $cubeBase[0];
+	float $pos[] = SecondAlgorithmresetWorldPosition ($meshName);
+
+	float $bbox1[] = `xform -q -bb $meshName`;
+
+	setAttr ($meshName + ".scale") -type double3 $randSX 1 $randSY;
+
+	float $bbox2[];
+	for ($i = 0; $i < 50; $i ++)
+	{
+		scale -r 0.99 1 0.99 $meshName;
+
+		$bbox2 = `xform -q -bb $meshName`;
+		float $freeX = $bbox2[3] / 30;
+		float $freeY = $bbox2[5] / 30;
+		if ($bbox1[3] >= 0)
+		{
+			if ((abs($bbox1[3]) > abs($bbox2[3] + $freeX)) && 
+				(abs($bbox1[5]) > abs($bbox2[5] + $freeY)))
+			{
+				if ((abs($bbox1[0]) > abs($bbox2[0] + $freeX)) && 
+				(abs($bbox1[2]) > abs($bbox2[2] + $freeY)))
+				{
+					break;
+				}
+			}
+		}
+		else
+		{
+			if ((abs($bbox1[0]) > abs($bbox2[0] + $freeX)) && 
+				(abs($bbox1[2]) > abs($bbox2[2] + $freeY)))
+			{
+				if ((abs($bbox1[3]) > abs($bbox2[3] + $freeX)) && 
+				(abs($bbox1[5]) > abs($bbox2[5] + $freeY)))
+				{
+					break;
+				}
+			}
+		}
+	}
+
+	float $moveValMult = rand(0.1,1);
+	float $moveValList[];
+	$moveValList[0] = (abs($bbox1[3]) - abs($bbox2[3])) * $moveValMult;
+	$moveValList[1] = (abs($bbox1[5]) - abs($bbox2[5])) * $moveValMult;
+	int $moveValIndex = rand(0,1.9);
+	int $randSign = rand(-1.9,1.9);
+	if ($moveValIndex == 0)
+	{
+		setAttr ($meshName + ".tx") ($moveValList[0] * $randSign);
+	}
+	else
+	{
+		setAttr ($meshName + ".tz") ($moveValList[1] * $randSign);
+	}
+
+	makeIdentity -a 1 -t 1 -s 1 -r 1 $meshName;
+
+	move -a -ws $pos[0] $pos[1] $pos[2] $meshName;
+
+	return $meshName;
+}
+
+global proc float SecondAlgorithmgetLongestEdge ( string $meshName )
+{
+	float $bbox[] = `xform -q -bb $meshName`;
+
+	float $lengthValue;
+	if (($bbox[3] - $bbox[0]) > ($bbox[5] - $bbox[2]))
+	{
+		$lengthValue = $bbox[3] - $bbox[0];
+	}
+	else
+	{
+		$lengthValue = $bbox[5] - $bbox[2];
+	}
+	return $lengthValue;
+}
+
+
+global proc string[] SecondAlgorithmfirstLevelExtrude ( string $polyName, float $lengthValue, string $meshName, float $randomHeight )
+{
+	float $randomWellHeight = rand(1,1.1);
+	int $noWells = 0;
+	string $combineGeo[];
+
+	float $special = rand(1,10);
+	int $stacksTrue = `checkBox -q -v stacksCheck`;
+	if ($stacksTrue == 1 && $special > 1 && $special < 2)
+	{
+		$combineGeo[size($combineGeo)] = SecondAlgorithmstackExtrude ( $polyName, $lengthValue, $randomHeight );
+		$noWells = 1;
+	}
+	else
+	{
+		float $shrinkScale;
+		int $shrinkRandom = rand(0,12);
+		if (`checkBox -q -v shrinkCheck` && $shrinkRandom < 2)
+		{
+			$shrinkScale = rand(0.6,0.95);
+			$noWells = 1;
+		}
+		else
+		{
+			$shrinkScale = 1;
+		}
+		polyExtrudeFacet -ch 0 -kft 0 -ltz ($lengthValue * $randomHeight) -lsx $shrinkScale -lsy $shrinkScale $polyName;
+	}
+
+	if (`checkBox -q -v wellsCheck` && $noWells == 0)
+	{
+		int $wellsRandom = rand(0,10);
+		if ($wellsRandom < `floatFieldGrp -q -v1 wellsOccur`)
+		{
+			float $bbCube[] = `xform -q -bb $polyName`;
+			float $cubeSize = (abs($bbCube[0] - $bbCube[3])) * (abs($bbCube[2] - $bbCube[5]));
+			float $cubeCenterX = ($bbCube[0] + $bbCube[3]) / 2;
+			float $cubeCenterZ = ($bbCube[2] + $bbCube[5]) / 2;
+		
+			$combineGeo[size($combineGeo)] = SecondAlgorithmwells ( $lengthValue, $cubeSize );
+			if ($bbCube[5] - $bbCube[2] > $bbCube[3] - $bbCube[0])
+			{
+				rotate -r 0 90 0 $combineGeo[size($combineGeo) - 1];
+			}
+			xform -ws -t $cubeCenterX $bbCube[1] $cubeCenterZ $combineGeo[size($combineGeo) - 1];
+			makeIdentity -t 1 -s 1 -a 1 $combineGeo[size($combineGeo) - 1];
+			scale -r 1 ($lengthValue * $randomHeight * rand(0.97,1.005)) 1 $combineGeo[size($combineGeo) - 1];
+			
+			if (`menuItem -q -cb enableLayoutUV` == 1)
+			{
+				int $wellsUVCount[] = `polyEvaluate -uv $combineGeo[size($combineGeo) - 1]`;
+				select -r ($combineGeo[size($combineGeo) - 1] + ".map[0:" + ($wellsUVCount[0] - 1) + "]");
+				polyEditUV -pu 0 -pv 0 -su 1 -sv ($lengthValue * $randomHeight);
+				select -cl;
+			}
+		}
+	}
+
+	string $polyNode = $polyName;
+	$polyName = $polyName + ".f[0]";
+	string $topPolys[] = `SecondAlgorithmselectFacesWithDirection $polyNode {0,1,0}`;
+	SecondAlgorithmbuildRim ( $topPolys, 1, 0 );
+
+	int $randSecondLevel = rand(0.2,4);
+
+	if ($randSecondLevel < 1 && $randomHeight >= 1 && `checkBox -q -v roofCube`)
+	{
+		string $detailGeo = SecondAlgorithmroofCube ( $polyName, $polyNode );
+		if ($detailGeo != "") $combineGeo[size($combineGeo)] = $detailGeo;
+	}
+	if ($randSecondLevel == 1 && $randomHeight >= 2)
+	{
+		if (`checkBox -q -v stairs`)
+		{
+			SecondAlgorithmstairStepSecondLevel ( $polyName, $lengthValue );
+			if ($randomHeight >= 2 && `checkBox -q -v antenna` && rand(0,5) > 3)
+			{
+				SecondAlgorithmbuildAntenna ( $polyName, $lengthValue );
+			}
+		}
+		else
+		{
+			if (`checkBox -q -v topDetail`)
+			{
+				for ($i = 0; $i < `radioButtonGrp -q -sl complexity`; $i++)
+				{
+					string $detailGeo = SecondAlgorithmtopDetail ( $polyName, $i );
+					if ($detailGeo != "") $combineGeo[size($combineGeo)] = $detailGeo;
+				}
+			}
+		}
+	}
+	else
+	{
+		if (`checkBox -q -v topDetail`)
+		{
+			for ($i = 0; $i < `radioButtonGrp -q -sl complexity`; $i++)
+			{
+				string $detailGeo = SecondAlgorithmtopDetail ( $polyName, $i );
+				if ($detailGeo != "") $combineGeo[size($combineGeo)] = $detailGeo;
+			}
+		}
+	}
+	if ($randSecondLevel == 2)
+	{
+		float $randomTop = rand(-1,1.3);
+		float $heightMax = `floatFieldGrp -q -v2 heightRange`;
+		if ($randomTop > 0)
+		{
+			SecondAlgorithmsplitSecondLevel ( $polyName, $meshName );
+			if ($randomHeight >= $heightMax / 2 && `checkBox -q -v topDetail`)
+			{
+				for ($i = 0; $i < `radioButtonGrp -q -sl complexity`; $i++)
+				{
+					string $detailGeo = SecondAlgorithmtopDetail ( $polyName, $i );
+					if ($detailGeo != "") $combineGeo[size($combineGeo)] = $detailGeo;
+				}
+			}
+		}
+		else if ($randomTop < 0 && `checkBox -q -v topDetail`)
+		{
+			string $detailGeo = SecondAlgorithmtopDetail ( $polyName, 0 );
+			if ($detailGeo != "") $combineGeo[size($combineGeo)] = $detailGeo;
+		}
+	}
+	return $combineGeo;
+}
+
+global proc string SecondAlgorithmstackExtrude ( string $polyName, float $edgeLength, float $heightValue )
+{
+	float $lengthValue = $edgeLength * $heightValue;
+	float $baseHeight = rand(0.1,0.2) * $lengthValue;
+	$lengthValue = $lengthValue - $baseHeight;
+	float $ledgeScale = rand(0.9,0.98);
+	float $ledgeUpScale = 1 + (1 - $ledgeScale);
+	float $storyScale = rand(2.2,3);
+	int $floors = ceil($lengthValue / ($edgeLength / $storyScale));
+	int $storyLedgeRatio = rand(4,8);
+	float $storyHeight = $lengthValue / $floors / $storyLedgeRatio;
+	float $ledgeHeight = $storyHeight;
+	$storyHeight = $storyHeight * ($storyLedgeRatio - 1);
+	string $extrude1[] = `polyExtrudeFacet -ch 1 -kft 0 -ltz $baseHeight $polyName`;
+	string $extrude2[] = `polyExtrudeFacet -ch 1 -kft 0 -ls $ledgeUpScale $ledgeUpScale 1 $polyName`;
+
+	float $bbox[] = `xform -q -ws -bb $polyName`;
+
+	string $rims[] = `polyCreateFacet -ch 0 -s 1 
+							-p $bbox[3] $bbox[4] $bbox[2] 
+							-p $bbox[0] $bbox[4] $bbox[2] 
+							-p $bbox[0] $bbox[4] $bbox[5] 
+							-p $bbox[3] $bbox[4] $bbox[5]`;
+
+	delete $extrude2[0];
+	setAttr ($extrude1[0] + ".ltz") (($ledgeHeight * $floors) + ($storyHeight * $floors));
+	delete -ch $polyName;
+
+	polyExtrudeFacet -ch 0 -kft 0 -ltz $ledgeHeight $rims[0];
+	if ($floors > 3) $floors --;
+	for ($i = 0; $i < $floors; $i ++)
+	{
+		if ($storyHeight * $i < ($ledgeHeight * $floors) + ($storyHeight * $floors))
+			polyChipOff -dup 1 -off 0 -ch 0 -ty ($storyHeight * $i) ($rims[0] + ".f[0:5]");
+	}
+
+	SecondAlgorithmmapBuildingExtension ($rims[0], "detail");
+
+	return $rims[0];
+}
+
+global proc string SecondAlgorithmwells ( float $length, float $size )
+{
+	string $duplicate[];
+	string $combineList[];
+	string $command;
+	string $roofCube = `SecondAlgorithmsingleCube 1`;
+	float $moveVal = rand(1.5,3);
+	float $wellSpace = rand(2,6);
+	float $width;
+	int $wellCount = rand(3,9.9);
+
+	$width = $size / $length;
+
+	scale ($length / $wellCount / $wellSpace) 1 ($width * 1.05) $roofCube;
+	makeIdentity -a 1 -t 1 -r 1 -s 1 $roofCube;
+
+	SecondAlgorithmmapBuildingExtension ($roofCube, "detail");
+
+	move -a ($length / -2) 0 0 $roofCube;
+
+	for ($i = 1; $i < $wellCount + 1; $i ++)
+	{
+		polyChipOff -dup 1 -off 0 -ch 0 -tx ($length / $wellCount * $i) ($roofCube + ".f[0:4]");
+	}
+
+	xform -ws -piv 0 0 0 $roofCube;
+	makeIdentity -a 1 -t 1 -r 1 -s 1 $roofCube;
+
+	return $roofCube;
+}
+
+global proc SecondAlgorithmstairStepSecondLevel ( string $polyName, float $lengthValue )
+{
+	int $maxLevelSteps = `radioButtonGrp -q -sl maxLevelSteps`;
+	int $levelNum = rand(1,$maxLevelSteps + 1);
+	float $levelHeight = rand(0.2,0.8);
+	float $levelScale = rand(0.6,0.8);
+
+	for ($i = 0; $i < $levelNum; $i ++)
+	{
+		polyExtrudeFacet -ch 0 -kft 0 -ls $levelScale $levelScale 1 $polyName;
+		polyExtrudeFacet -ch 0 -kft 0 -ltz ($lengthValue * $levelHeight) $polyName;
+		$lengthValue = $lengthValue * 0.8;
+		SecondAlgorithmbuildRim ( {$polyName}, 1, 0 );
+	}
+}
+
+global proc SecondAlgorithmbuildAntenna ( string $polyName, float $lengthValue )
+{
+	float $antennaHeight = rand(0.6,1.5);
+	polyExtrudeFacet -ch 0 -kft 0 -ls 0.1 0.1 1 $polyName;
+	SecondAlgorithmapplyColor ( "antenna", {$polyName}, 0 );
+	polyExtrudeFacet -ch 0 -kft 0 -ltz ($lengthValue * $antennaHeight) -ls 0.1 0.1 1 $polyName;
+}
+
+global proc SecondAlgorithmsplitSecondLevel ( string $polyName, string $meshName )
+{
+
+	select(`polyListComponentConversion -ff -te $polyName`);
+
+	string $edgeList[] = `ls -sl -fl`;
+
+
+	float $splitValue = rand(0.25,0.75);
+
+	int $randOrient = rand(0,1.9);
+	string $edgeNameItems[];
+	tokenize $edgeList[0 + $randOrient] "." $edgeNameItems;
+	int $point1 = `substring $edgeNameItems[1] 3 (size($edgeNameItems[1]) - 1)`;
+	tokenize $edgeList[2 + $randOrient] "." $edgeNameItems;
+	int $point2 = `substring $edgeNameItems[1] 3 (size($edgeNameItems[1]) - 1)`;
+	polySplit -ch 0 -s 1 -sma 90 -ep $point1 $splitValue -ep $point2 (1 - $splitValue);
+	float $userHeight = `floatFieldGrp -q -v1 detailHeight`;
+	float $randHeight = rand(1,2);
+	polyExtrudeFacet -ch 0 -kft 0 -ltz ($userHeight * $randHeight) $polyName;
+}
+
+global proc string SecondAlgorithmroofCube ( string $polyName, string $meshName )
+{
+
+	float $sizeMin = `floatFieldGrp -q -v1 sizeRange`;
+	float $sizeMax = `floatFieldGrp -q -v2 sizeRange`;
+	float $randSX = rand($sizeMin,$sizeMax);
+	float $randSY = rand($sizeMin,$sizeMax);
+	float $bbox1[] = `xform -q -ws -bb $polyName`;
+	string $extrude[] = `polyExtrudeFacet -ch 1 -kft 0 -ls $randSX $randSY 1 $polyName`;
+	float $bbox2[] = `xform -q -ws -bb $polyName`;
+
+	string $cubeBase[] = `polyCreateFacet -ch 0 -s 1 
+								-p $bbox2[3] $bbox2[4] $bbox2[2] 
+								-p $bbox2[0] $bbox2[4] $bbox2[2] 
+								-p $bbox2[0] $bbox2[4] $bbox2[5] 
+								-p $bbox2[3] $bbox2[4] $bbox2[5]`;
+
+	delete $extrude[0];
+
+
+	float $moveValMult = rand(0.6,0.9);
+	float $moveValList[];
+	$moveValList[0] = (abs($bbox1[3]) - abs($bbox2[3])) * $moveValMult;
+	$moveValList[1] = (abs($bbox1[5]) - abs($bbox2[5])) * $moveValMult;
+	int $moveValIndex = rand(0,1.9);
+	int $randSign = rand(-1.9,1.9);
+	if ($moveValIndex == 0)
+	{
+		move -r -ws ($moveValList[0] * $randSign) 0 0 $cubeBase[0];
+	}
+	else
+	{
+		move -r -ws 0 0 ($moveValList[1] * $randSign) $cubeBase[0];
+	}
+	polyExtrudeFacet -ch 0 -kft 0 -ltz (abs($moveValList[$moveValIndex]) * 0.5) $cubeBase[0];
+	SecondAlgorithmbuildRim ( {($cubeBase[0] + ".f[0]")}, 0.5, 1 );
+	SecondAlgorithmmapBuildingExtension ($cubeBase[0], "detail");
+	return $cubeBase[0];
+}
+
+global proc string SecondAlgorithmtopDetail ( string $topPoly, int $scaleHeight )
+{
+	string $roofCube;
+	string $extrude[];
+	float $bbFloor[];
+	float $bbCube[];
+	float $floorSize;
+	float $floorCenterX;
+	float $floorCenterZ;
+	float $cubeSize;
+	float $scaleMax;
+	float $height;
+	float $randSizeX;
+	float $randSizeZ;
+	float $moveRangeX;
+	float $moveRangeZ;
+	float $randMoveX;
+	float $randMoveZ;
+	int $randType;
+
+
+	$bbFloor = `xform -q -ws -bb $topPoly`;
+	$floorSize = (abs($bbFloor[0] - $bbFloor[3])) * (abs($bbFloor[2] - $bbFloor[5]));
+
+	$floorCenterX = ($bbFloor[0] + $bbFloor[3]) / 2;
+	$floorCenterZ = ($bbFloor[2] + $bbFloor[5]) / 2;
+
+	$randType = rand(0,3.5);
+	if ($randType == 1)
+	{
+		$roofCube = `SecondAlgorithmsingleCube 0`;
+	}
+	else if ($randType == 2)
+	{
+		$roofCube = `SecondAlgorithmlShape`;
+	}
+	else if ($randType == 3)
+	{
+		$roofCube = `SecondAlgorithmtriplet`;
+	}
+	else
+	{
+		$roofCube = "";
+		return $roofCube;
+	}
+
+	xform -ws -t $floorCenterX $bbFloor[4] $floorCenterZ $roofCube;
+	$bbCube = `xform -q -bb $roofCube`;
+	$cubeSize = (abs($bbCube[0] - $bbCube[3])) * (abs($bbCube[2] - $bbCube[5]));
+
+	float $userHeight = `floatFieldGrp -q -v1 detailHeight`;
+	$userHeight = rand($userHeight * 0.8, $userHeight * 1.2);
+	if ($scaleHeight > 0)
+	{
+		$height = $userHeight + ($userHeight / 10 * $scaleHeight);
+	}
+	else
+	{
+		$height = $userHeight;
+	}
+
+	$scaleMax = sqrt($floorSize / $cubeSize);
+	$randSizeX = rand($scaleMax/2,$scaleMax);
+	$randSizeZ = rand($randSizeX/2,$randSizeX);
+	scale -a $randSizeX $height $randSizeZ $roofCube;
+
+	makeIdentity -t 1 -s 1 -a 1 $roofCube;
+	$bbCube = `xform -q -bb $roofCube`;
+
+	$moveRangeX = $bbFloor[3] - $bbCube[3];
+	$moveRangeZ = $bbFloor[5] - $bbCube[5];
+	$randMoveX = rand($moveRangeX * -1,$moveRangeX);
+	$randMoveZ = rand($moveRangeZ * -1,$moveRangeZ);
+	move -r $randMoveX 0 $randMoveZ $roofCube;
+
+	$bbCube = `xform -q -bb $roofCube`;
+	for ($i = 0; $i < 10; $i ++)
+	{
+		if (($bbCube[0] < $bbFloor[0]) || ($bbCube[3] > $bbFloor[3]) ||
+				($bbCube[2] < $bbFloor[2]) || ($bbCube[5] > $bbFloor[5]))
+		{
+			move -r (($randMoveX/10) * -1) 0 (($randMoveZ/10) * -1) $roofCube;
+			scale -a 0.9 1 0.9 $roofCube;
+			makeIdentity -s 1 -a 1 $roofCube;
+			$bbCube = `xform -q -bb $roofCube`;
+		}
+	}
+	if (($bbCube[0] < $bbFloor[0]) || ($bbCube[3] > $bbFloor[3]) ||
+				($bbCube[2] < $bbFloor[2]) || ($bbCube[5] > $bbFloor[5]))
+	{
+		delete $roofCube;
+		$roofCube = "";
+	}
+
+	if ($roofCube != "") SecondAlgorithmmapBuildingExtension ($roofCube, "detail");
+
+	return $roofCube;
+}
+
+global proc string SecondAlgorithmsingleCube ( int $wells )
+{
+	string $roofCube[];
+	$roofCube = `polyCube -ch 0`;
+	delete ($roofCube[0] + ".f[3]");
+	move -a 0 0.5 0 $roofCube[0];
+	makeIdentity -t 1 -a 1 $roofCube[0];
+	xform -ws -piv 0 0 0 $roofCube[0];
+
+	float $rim = rand(0,5);
+	if ($rim < 2 && $wells == 0)
+	{
+		SecondAlgorithmbuildRim ( {$roofCube[0] + ".f[1]"}, 0.5, 1 );
+	}
+
+	return $roofCube[0];
+}
+
+global proc string SecondAlgorithmlShape ()
+{
+	string $zero[];
+
+	int $randRot;
+
+	string $roofCube[] = `polyCube -sx 2 -sz 2 -ch 0`;
+	delete ($roofCube[0] + ".f[8:11]");
+	polyMoveFacet -ch 0 -ltz (rand(0,2)) ($roofCube[0] + ".f[0:1]");
+	polyExtrudeFacet -ch 0 -kft 0 -ltz (rand(0.5,2)) ($roofCube[0] + ".f[13]");
+	select -cl;
+	move -a 0 0.5 0 $roofCube[0];
+	makeIdentity -t 1 -a 1 $roofCube[0];
+	select $roofCube[0];
+	CenterPivot;
+	xform -r -piv 0 -0.5 0 $roofCube[0];
+
+	float $pos[] = `xform -q -ws -rp $roofCube[0]`;
+	setAttr ($roofCube[0] + ".translate") -type double3 ($pos[0] * -1) ($pos[1] * -1) ($pos[2] * -1);
+	makeIdentity -a 1 -t 1 -r 1 -s 1 $roofCube[0];
+	move -a -ws $pos[0] $pos[1] $pos[2] $roofCube[0];
+
+	$randRot = rand(0,10);
+	for ($i = 0; $i == $randRot; $i ++)
+	{
+		rotate -os 0 90 0 $roofCube[0];
+	}
+
+	return $roofCube[0];
+}
+
+global proc string SecondAlgorithmtriplet ()
+{
+	string $roofCube = `SecondAlgorithmsingleCube 0 `;
+	scale 1 1 (rand(2,4)) $roofCube;
+
+	float $rim = rand(0,5);
+	if ($rim < 2)
+	{
+		SecondAlgorithmbuildRim ( {$roofCube + ".f[1]"}, 0.5, 1 );
+	}
+	float $moveVal = rand(1.5,3);
+	polyChipOff -dup 1 -off 0 -ch 0 -tx $moveVal ($roofCube + ".f[0:4]");
+	polyChipOff -dup 1 -off 0 -ch 0 -tx ($moveVal * -1) ($roofCube + ".f[0:4]");
+
+	int $randRot = rand(0,10);
+	for ($i = 0; $i == $randRot; $i ++)
+	{
+		rotate -os 0 90 0 $roofCube;
+	}
+
+	return $roofCube;
+}
+
+global proc SecondAlgorithmbuildRim ( string $polyName[], float $mult, int $random )
+{
+
+	int $randRim = rand(0,9.9);
+	if ($randRim > 3 || $random == 0)
+	{
+		polyExtrudeFacet -ch 0 -kft 0 -ls 0.95 0.95 1 $polyName;
+		polyExtrudeFacet -ch 0 -kft 0 -ltz ((`floatFieldGrp -q -v1 rimHeight`) * ($mult * -1)) $polyName;
+	}
+
+	select -cl;
+}
+
+global proc SecondAlgorithmcreateColors ()
+{
+	string $cityShader;
+	string $citySG;
+	int $add;
+
+	float $baseColors[] = {0.8,0.8,0.8,0.6,0.6,0.6,0.7,0.7,0.7,
+							0.4,0.4,0.4,0.65,0.65,0.65,0.75,0.75,0.75,0.6,0.6,0.6,
+							0.47,0.23,0.17,0.36,0.48,0.55,
+							0.2,0.24,0.32,0.73,0.66,0.38,
+							0.6,0.51,0.34,
+							0.25,0.25,0.25,0.12,0.12,0.12,
+							0.85,0.85,0.85,0.96,0.96,0.96,
+							1,1,1};
+	global string $SecondAlgorithmcolors[];
+	string $colorNames[] = $SecondAlgorithmcolors;
+	for ($i = 0; $i < size($colorNames); $i ++)
+	{
+		if (!`objExists ($colorNames[$i] + "_SH")`)
+		{
+			if (`menuItem -q -rb shaderBlinn`)
+				$cityShader = `shadingNode -as blinn -n ($colorNames[$i] + "_SH")`;
+			else if (`menuItem -q -rb shaderMR`)
+			{
+				$cityShader = `mrCreateCustomNode -asShader "" mia_material_x_passes`;
+				$cityShader = `rename $cityShader ($colorNames[$i] + "_SH")`;
+				if ($i > 6)
+				{
+					setAttr ($cityShader + ".refl_depth") 2;
+					setAttr ($cityShader + ".refl_gloss") 1;
+					setAttr ($cityShader + ".reflectivity") 1;
+				}
+				else
+				{
+					setAttr ($cityShader + ".reflectivity") 0;
+				}
+				string $conn[] = `listConnections -s 0 -d 1 $cityShader`;
+				rename $conn[0] ($colorNames[$i] + "_SG");
+			}	
+			else if (`menuItem -q -rb shaderVRay`)
+			{
+				$cityShader = `shadingNode -as VRayMtl -n ($colorNames[$i] + "_SH")`;
+				if ($i > 6)
+				{
+					setAttr ($cityShader + ".useFresnel") 1;
+					setAttr ($cityShader + ".reflectionsMaxDepth") 2;
+					setAttr ($cityShader + ".reflectionGlossiness") 0.98;
+					setAttr ($cityShader + ".refractionIOR") 1.7;
+				}
+			}
+
+			if (!`menuItem -q -rb shaderMR`)
+			{
+				$citySG = `sets -r 1 -nss 1 -em -n ($colorNames[$i] + "_SG")`;
+				connectAttr -f ($cityShader + ".outColor") ($citySG + ".surfaceShader");
+				setAttr ($colorNames[$i] + "_SH.color") $baseColors[$i + $add] $baseColors[$i + 1 + $add] $baseColors[$i + 2 + $add];
+			}
+			else
+			{
+				setAttr ($colorNames[$i] + "_SH.diffuse") $baseColors[$i + $add] $baseColors[$i + 1 + $add] $baseColors[$i + 2 + $add];
+			}
+			$add = $add + 2;
+			select -cl;
+		}
+	}
+	
+	if (`objExists ($colorNames[0] + "_SH")`)
+		print "// Sombras creadas. //\n";
+	else
+	{
+		string $result = `SecondAlgorithmpresetFileLocation`;
+		if (!`filetest -e $result`)
+		{
+			error "Fallo al crear las sombras.";
+		}
+	}
+}
+
+global proc SecondAlgorithmapplyColor ( string $color, string $polyList[], int $setIndex )
+{
+	if (`objExists ($color + "_SG")`)
+	{
+		sets -e -fe ($color + "_SG") $polyList;
+	}
+
+	if (!`objExists ($color + "_color_fileTex")`)
+		return;
+
+
+	string $obj[];
+	tokenize $polyList[0] "." $obj;
+
+
+	int $omit = 0;
+	string $shape[] = `listRelatives -s $obj[0]`;
+	string $conn1[] = `listConnections -s 0 -d 1 -type uvChooser $shape[0]`;
+	for ($c1 in $conn1)
+	{
+		string $conn2[] = `listConnections -s 0 -d 1 -type place2dTexture $c1`;
+		$conn2 = stringArrayRemoveDuplicates($conn2);
+		for ($c2 in $conn2)
+		{
+			string $conn3[] = `listConnections -s 0 -d 1 -type file $c2`;
+			if ($conn3[0] == ($color + "_color_fileTex"))
+				$omit = 1;
+		}
+	}
+
+	if ($omit == 0)
+		uvLink -make -uvSet ($obj[0] + ".uvSet[" + $setIndex + "].uvSetName") -texture ($color + "_color_fileTex");
+}
+
+global proc SecondAlgorithmaddToSet ( string $polyName, string $type )
+{
+
+	if (!`objExists ($type + "_set")`)
+	{
+		string $sel[] = `ls -sl`;
+		select -cl;
+		sets -n ($type + "_set");
+		select -cl;
+		for ($j in $sel)
+		{
+			select -add $j;
+		}
+	}
+
+	sets -e -fe ($type + "_set") $polyName;	
+}
+
+global proc SecondAlgorithmconnectTextures ()
+{
+	global string $SecondAlgorithmcolors[];
+	string $colorNames[] = $SecondAlgorithmcolors;
+	stringArrayRemoveAtIndex(0,$colorNames);
+
+	string $extList[] = {"bmp","exr","iff","jpg","png","tga","tif"};
+	int $tile = 4;
+	string $extension = "jpg";
+
+	string $mapPath = `menuItem -q -l SecondAlgorithmmapPath`;
+
+	if (`optionVar -ex "SecondAlgorithmuserDef_SecondAlgorithmtiling"`)
+	{
+		$tile = (`optionVar -q "SecondAlgorithmuserDef_SecondAlgorithmtiling"`) + 1;
+	}
+
+	if (`optionVar -ex "SecondAlgorithmuserDef_SecondAlgorithmfileType"`)
+	{
+		int $extID = `optionVar -q "SecondAlgorithmuserDef_SecondAlgorithmfileType"`;
+		$extension = $extList[$extID];
+	}
+
+	string $fileNodes[] = {"_reflection_fileTex","_color_fileTex"};
+	string $outputs[] = {"outAlpha","outColor"};
+	string $inputsBlinn[] = {"reflectivity","color"};
+	string $inputsMR[] = {"refl_color","diffuse"};
+	string $inputsVRay[] = {"reflectionColor","color"};
+	string $inputs[];
+
+	if(`menuItem -q -rb shaderBlinn`)
+		$inputs = $inputsBlinn;
+	else if (`menuItem -q -rb shaderMR`)
+	{
+		$inputs = $inputsMR;
+		$outputs[0] = "outColor";
+	}
+	else if (`menuItem -q -rb shaderVRay`)
+	{
+		$inputs = $inputsVRay;
+		$outputs[0] = "outColor";
+	}
+
+	for ($n = 0; $n < size($colorNames); $n ++)
+	{
+		if (`objExists ($colorNames[$n] + "_SH")`)
+		{
+			string $colorMap = `shadingNode -asTexture file -n ($colorNames[$n] + $fileNodes[1])`;
+			string $place2d = `shadingNode -asUtility place2dTexture -n ($colorNames[$n] + "_place2d")`;
+			setAttr -type "string" ($colorMap + ".fileTextureName") ($mapPath + $colorNames[$n] + "_color." + $extension);
+			setAttr ($place2d + ".repeatUV") $tile $tile;
+
+			if (`menuItem -q -cb enableRGB` && `menuItem -q -rb shaderVRay`)
+			{
+				vray addAttributesFromGroup $colorMap vray_file_gamma 1;
+				setAttr ($colorMap + ".filterType") 0;
+			}
+			string $gamma[];
+			if (`menuItem -q -cb enableRGB` && (`menuItem -q -rb shaderMR` || `menuItem -q -rb shaderBlinn`))
+			{
+				$gamma[size($gamma)] = `shadingNode -au gammaCorrect -n ($colorNames[$n] + "_color_gamma")`;
+				setAttr ($gamma[size($gamma)] + ".gamma") -type double3 0.454 0.454 0.454;
+				connectAttr -f ($colorNames[$n] + $fileNodes[1] + "." + $outputs[1]) ($gamma[size($gamma)] + ".value");
+			}
+
+			int $both = 1;
+			if ($n > 5) 
+			{
+				$both = 0;
+				string $reflMap = `shadingNode -asTexture file -n ($colorNames[$n] + $fileNodes[0])`;
+				setAttr -type "string" ($reflMap + ".fileTextureName") ($mapPath + $colorNames[$n] + "_reflection." + $extension);
+				setAttr ($reflMap + ".alphaIsLuminance") 1;
+				
+				if (`menuItem -q -rb shaderVRay`)
+				{
+					setAttr ($reflMap + ".filterType") 0;
+				}
+			}
+
+			for ($a = $both; $a < 2; $a ++)
+			{
+				connectAttr -f ($place2d + ".coverage") ($colorNames[$n] + $fileNodes[$a] + ".coverage");
+				connectAttr -f ($place2d + ".translateFrame") ($colorNames[$n] + $fileNodes[$a] + ".translateFrame");
+				connectAttr -f ($place2d + ".rotateFrame") ($colorNames[$n] + $fileNodes[$a] + ".rotateFrame");
+				connectAttr -f ($place2d + ".mirrorU") ($colorNames[$n] + $fileNodes[$a] + ".mirrorU");
+				connectAttr -f ($place2d + ".mirrorV") ($colorNames[$n] + $fileNodes[$a] + ".mirrorV");
+				connectAttr -f ($place2d + ".stagger") ($colorNames[$n] + $fileNodes[$a] + ".stagger");
+				connectAttr -f ($place2d + ".wrapU") ($colorNames[$n] + $fileNodes[$a] + ".wrapU");
+				connectAttr -f ($place2d + ".wrapV") ($colorNames[$n] + $fileNodes[$a] + ".wrapV");
+				connectAttr -f ($place2d + ".repeatUV") ($colorNames[$n] + $fileNodes[$a] + ".repeatUV");
+				connectAttr -f ($place2d + ".offset") ($colorNames[$n] + $fileNodes[$a] + ".offset");
+				connectAttr -f ($place2d + ".rotateUV") ($colorNames[$n] + $fileNodes[$a] + ".rotateUV");
+				connectAttr -f ($place2d + ".noiseUV") ($colorNames[$n] + $fileNodes[$a] + ".noiseUV");
+				connectAttr -f ($place2d + ".vertexUvOne") ($colorNames[$n] + $fileNodes[$a] + ".vertexUvOne");
+				connectAttr -f ($place2d + ".vertexUvTwo") ($colorNames[$n] + $fileNodes[$a] + ".vertexUvTwo");
+				connectAttr -f ($place2d + ".vertexUvThree") ($colorNames[$n] + $fileNodes[$a] + ".vertexUvThree");
+				connectAttr -f ($place2d + ".vertexCameraOne") ($colorNames[$n] + $fileNodes[$a] + ".vertexCameraOne");
+				connectAttr -f ($place2d + ".outUV") ($colorNames[$n] + $fileNodes[$a] + ".uv");
+				connectAttr -f ($place2d + ".outUvFilterSize") ($colorNames[$n] + $fileNodes[$a] + ".uvFilterSize");
+
+				if (!`menuItem -q -cb enableRGB`)
+				{
+					connectAttr -f ($colorNames[$n] + $fileNodes[$a] + "." + $outputs[$a]) ($colorNames[$n] + "_SH." + $inputs[$a]);
+				}
+				else if ($a > 0 && (`menuItem -q -rb shaderMR` || `menuItem -q -rb shaderBlinn`))
+				{
+					connectAttr -f ($gamma[$n] + ".outValue") ($colorNames[$n] + "_SH." + $inputs[$a]);
+				}
+				else if ($a < 1 || `menuItem -q -rb shaderVRay`)
+				{
+					connectAttr -f ($colorNames[$n] + $fileNodes[$a] + "." + $outputs[$a]) ($colorNames[$n] + "_SH." + $inputs[$a]);
+				}
+			}
+		}
+	}
+	select -cl;
+}
+
+global proc SecondAlgorithmautoLayoutUVs ( string $mesh, int $separateTop, string $setName, string $uvName )
+{
+	delete -ch $mesh;
+
+	if (`menuItem -q -cb enableLayoutUV` == 0)
+	{
+		return;
+	}
+
+	int $unitize = 1;
+
+	int $newSet;
+	string $uvSets[] = `polyUVSet -q -auv $mesh`;
+	for ($set in $uvSets)
+	{
+		if ($set == $uvName) $newSet = 1;
+	}
+	
+	if ($uvName == "")
+	{
+		polyAutoProjection -lm 0 -ibd 1 -l 1 -sc 0 -o 1 -p 6 -ws 0 -s 1 1 1 -cm 0 -ch 0 $mesh;
+	}
+	else
+	{
+		polyAutoProjection -lm 0 -ibd 1 -l 1 -sc 0 -o 1 -p 6 -ws 0 -s 1 1 1 -ch 0 -cm 1 -uvs $uvName $mesh;
+		polyUVSet -cuv -uvs $uvName $mesh;
+		$unitize = 0;
+	}
+
+	select -r $mesh;
+
+	string $faceList[];
+	string $uvList[];
+	if ($separateTop == 1)
+	{
+		$faceList = `SecondAlgorithmselectFacesWithDirection $mesh {0,1,0}`;
+
+		SecondAlgorithmlayoutUVs ($faceList, 0);
+
+		select $faceList;
+		$uvList = `polyListComponentConversion -ff -tuv`;
+		select $uvList;
+		int $randTopRot = rand(0,9.9);
+		polyRotateUVs (90 * $randTopRot);
+		
+		SecondAlgorithmlayoutUVs ($faceList, 0);
+		select $uvList;
+		
+		polyCopyUV -uvSetNameInput "map1" -uvSetName "topMap" -createNewMap 1 -ch 0;
+
+
+		polyUVSet -currentUVSet -uvSet "map1" $mesh;
+		polyMapDel -ch 0 $uvList;
+
+		int $setIndex = SecondAlgorithmgetUVSetIndex ( $mesh, "topMap" );
+		int $randSet = rand(0,9.9);
+		if ($randSet < 5) SecondAlgorithmapplyColor ("roof1", $faceList, $setIndex);
+		else SecondAlgorithmapplyColor ("roof2", $faceList, $setIndex);
+
+		select -r $faceList;
+		InvertSelection;
+		$faceList = `ls -sl -fl`;
+
+		if (`objExists "antenna_SG"`)
+		{
+			string $antennaSet[] = `sets -q "antenna_SG"`;
+			$antennaSet = `filterExpand -sm 34 -ex true $antennaSet`;
+			$faceList = stringArrayRemove($antennaSet, $faceList);
+		}
+
+		$setIndex = SecondAlgorithmgetUVSetIndex ( $mesh, "map1" );
+		SecondAlgorithmapplyColor ($setName, $faceList, $setIndex);
+		select -r $faceList;
+	}
+	else
+	{
+		$faceList = SecondAlgorithmgetComponentList ( $mesh, "f" );
+	}
+	SecondAlgorithmlayoutUVs ($faceList, $unitize);
+	select -r $mesh;
+
+	$faceList = `SecondAlgorithmselectFacesWithDirection $mesh {0,0,-1}`;
+	select -r $faceList;
+	select -r (`polyListComponentConversion -ff -tuv`);
+	$uvList = `ls -sl -fl`;
+	if (size($uvList) > 0)
+	{
+		polyRotateUVs 180;
+		SecondAlgorithmlayoutUVs ($faceList, $unitize);
+	}
+	delete -ch $mesh;
+	select -cl;
+}
+
+global proc SecondAlgorithmlayoutUVs ( string $faces[], int $unitize )
+{
+	for ($f in $faces)
+	{
+		select -r $f;
+		polyLayoutUV -lm 1 -sc 0 -se 0 -rbf 0 -fr 1 -l 1 -ch 0;
+		select (`polyListComponentConversion -ff -tuv`);
+		if ($unitize == 1)
+		{
+			float $bbUV[] = `polyEvaluate -bc2`;
+			float $scaleU;
+			float $scaleV;
+			if ($bbUV[1] != 0)
+				$scaleU = ((int)($bbUV[1] + 0.5))/$bbUV[1];
+			else
+				$scaleU = 1;
+			if ($bbUV[3] != 0)
+				$scaleV = ((int)($bbUV[3] + 0.5))/$bbUV[3];
+			else
+				$scaleV = 1;
+			polyEditUV -pu 0 -pv 0 -su $scaleU -sv $scaleV;
+			polyGridUV 4 4 0;
+		}
+	}
+}
+
+global proc SecondAlgorithmmapBuildingExtension ( string $mesh, string $type )
+{
+	int $count[] = `polyEvaluate -uv $mesh`;
+	polyMapDel -ch 0 ($mesh + ".map[0:" + ($count[0] - 1) + "]");
+
+	int $randColor = rand(1,4.9);
+	SecondAlgorithmautoLayoutUVs ( $mesh, 0, ("concrete" + $randColor), $type );
+
+	string $components[] = SecondAlgorithmgetComponentList ( $mesh, "f" );
+	int $setIndex = SecondAlgorithmgetUVSetIndex ( $mesh, $type );
+	SecondAlgorithmapplyColor ( ("concrete" + $randColor), $components, $setIndex );
+}
+
+
+global proc int SecondAlgorithmgetUVSetIndex ( string $mesh, string $setName )
+{
+	string $sets[] = `polyUVSet -q -auv $mesh`;
+	int $index = 0;
+	for ($s = 0; $s < size($sets); $s ++)
+	{
+		if ($sets[$s] == $setName) $index = $s;
+	}
+	return $index;
+}
+
+global proc string[] SecondAlgorithmgetComponentList ( string $mesh, string $type )
+{
+	int $count[] = `polyEvaluate ("-" + $type) $mesh`;
+	if ($type == "uv") $type = "map";
+	select ($mesh + "." + $type + "[0:" + ($count[0] - 1) + "]");
+	string $componentsString[] = `ls -sl -fl`;
+	return $componentsString;
+}
+
+global proc float[] SecondAlgorithmresetWorldPosition ( string $meshName )
+{
+	select $meshName;
+	CenterPivot;
+	float $pos[] = `xform -q -ws -rp $meshName`;
+	setAttr ($meshName + ".translate") -type double3 ($pos[0] * -1) ($pos[1] * -1) ($pos[2] * -1);
+	makeIdentity -a 1 -t 1 -r 1 -s 1 $meshName;
+	select -cl;
+	return $pos;
+}
+
+global proc string[] SecondAlgorithmselectFacesWithDirection ( string $mesh, int $xyz[] )
+{
+	string $faceList[];
+	float $nList[];
+
+	int $count[] = `polyEvaluate -f $mesh`;
+	for ($i = 0; $i < $count[0]; $i ++)
+	{
+		string $normal[] = `polyInfo -fn ($mesh + ".f[" + $i + "]")`;
+		string $nData[];
+		tokenize $normal[0] " " $nData;
+		if (size($nData) > 3 && $nData[0] == "FACE_NORMAL")
+		{
+			$nList = {
+						((float)($nData[size($nData) - 3])),
+						((float)($nData[size($nData) - 2])),
+						((float)($nData[size($nData) - 1]))};
+		}
+
+		if (abs($nList[0]) > abs($nList[1]) && abs($nList[0]) > abs($nList[2]))
+			$nList[1] = $nList[2] = 0;
+		else if (abs($nList[1]) > abs($nList[2]))
+			$nList[0] = $nList[2] = 0;
+		else $nList[0] = $nList[1] = 0;
+
+		int $dir;
+		if (abs($xyz[0]) > abs($xyz[1]) && abs($xyz[0]) > abs($xyz[2]))
+			$dir = 0;
+		else if (abs($xyz[1]) > abs($xyz[2]))
+			$dir = 1;
+		else $dir = 2;
+
+		if ($nList[$dir] < 0 && $xyz[$dir] < 0)
+			$faceList[size($faceList)] = ($mesh + ".f[" + $i + "]");
+		else if ($nList[$dir] > 0 && $xyz[$dir] > 0)
+			$faceList[size($faceList)] = ($mesh + ".f[" + $i + "]");
+	}
+
+	return $faceList;
+}
+
+global proc SecondAlgorithmcreateBasePlane ()
+{
+	int $div = `intFieldGrp -q -v1 planeSubdivisions`;
+	string $plane[] = `polyPlane -w ($div * 5) -h ($div * 5) -sx $div -sy $div -ax 0 1 0 -cuv 2 -ch 0`;
+	$plane[0] = `rename $plane[0] "SecondAlgorithm_basePlane_geo"`;
+}
+
+global proc string[] SecondAlgorithmselectClumpVertices ( string $meshName )
+{
+	int $verts[] = `polyEvaluate -v $meshName`;
+	int $vertNum[];
+	string $vertList[];
+	for ($i = 0; $i < $verts[0] / 5; $i ++)
+	{
+		int $randNum = rand(0,$verts[0] + 0.9);
+		int $exists = 0;
+		for ($v in $vertNum)
+		{
+			if ($v == $randNum)
+			{
+				$exists = 1;
+				$i--;
+			}
+		}
+		if ($exists == 0)
+		{
+			$vertNum[size($vertNum)] = $randNum;
+			$vertList[size($vertList)] = $meshName + ".vtx[" + $randNum + "]";
+		}
+	}
+	return $vertList;
+}
+
+global proc SecondAlgorithmcreateDisctricts ()
+{
+	int $size = 50;
+	string $plane[] = `polyPlane -w $size -h $size -sx 1 -sy 1 -ax 0 1 0 -cuv 2 -ch 0`;
+	$plane[0] = `rename $plane[0] "SecondAlgorithm_basePlane_geo"`;
+	string $projCurves[];
+
+	for ($i = 0; $i < 3; $i ++)
+	{
+		string $line = `curve -d 1 -p 0 0 ($size * 0.4) -p 0 0 ($size * -0.4) -k 0 -k 1`;
+		rebuildCurve -ch 0 -rpo 1 -rt 0 -end 1 -kr 0 -kcp 0 -kep 1 -kt 0 -s 8 -d 1 -tol 0.01 $line;
+		select -r ($line + ".cv[*]");
+		string $cv[] = `ls -sl -fl`;
+		select -cl;
+
+		for ($c = 0; $c < size($cv); $c ++)
+		{
+			float $pos[] = `xform -q -ws -t $cv[$c]`;
+			float $randX = rand(($size / 5) * -1,$size / 8);
+			float $randZ = rand(($size / 10) * -1,$size / 10);
+			move -r ($pos[0] - $randX) 0 ($pos[2] - $randZ) $cv[$c];
+		}
+		if ($i == 0) rotate -r -ws 0 -45 0 $line;
+		rotate -r -ws 0 ((80 * ($i + 1)) + rand(-20,20)) 0 $line;
+		$projCurves[size($projCurves)] = $line;
+	}
+
+	for ($i = 0; $i < 2; $i ++)
+	{
+		string $ring[] = `circle -c 0 0 0 -nr 0 1 0 -sw 360 -r ($size / (4 * ($i + 1))) -d 1 -ut 0 -tol 0.01 -s 18 -ch 0`;
+		select -r ($ring[0] + ".cv[*]");
+		string $cv[] = `ls -sl -fl`;
+		select -cl;
+
+		int $range = 12 * ($i + 1);
+		for ($c = 1; $c < size($cv) - 2; $c ++)
+		{
+			float $pos[] = `xform -q -ws -t $cv[$c]`;
+			float $randX = rand(($size / $range) * -1,$size / $range);
+			float $randZ = rand(($size / $range) * -1,$size / $range);
+			move -r ($pos[0] - $randX) 0 ($pos[2] - $randZ) $cv[$c];
+		}
+		rotate -r -ws 0 (rand(-150,150)) 0 $ring[0];
+		$projCurves[size($projCurves)] = $ring[0];
+	}
+	
+	int $count = 0;
+	string $geo = $plane[0];
+	string $cutCurves[];
+	for ($c in $projCurves)
+	{
+		string $pCurve[] = `polyProjectCurve -ch 1 -direction 0 1 0 -pointsOnEdges 0 $c $geo`;
+		select -r $pCurve[0];
+		select -add $geo;
+		performSplitMeshWithProjectedCurve 0;
+		$count ++;
+		$geo = $plane[0] + $count;
+		$cutCurves[size($cutCurves)] = $pCurve[0];
+	}
+	delete -ch $geo;
+	delete $projCurves;
+	delete $cutCurves;
+
+	select "SecondAlgorithm_basePlane_geo*";
+	string $sel[] = `ls -sl`;
+	for ($s in $sel)
+	{
+		if ($s != $geo && !`gmatch $s "*Shape*"`) delete $s;
+	}
+	rename $geo $plane[0];
+
+	string $separate[] = `polySeparate -ch 0 $plane[0]`;
+	select -r $plane[0];
+}
+
+global proc SecondAlgorithmpolyToCurve ()
+{
+	string $sel[] = `ls -sl`;
+	if (size($sel) == 0)
+	{
+		if (`objExists "SecondAlgorithm_basePlane_geo"`) select -r "SecondAlgorithm_basePlane_geo";
+		else return;
+	}
+
+	$sel = `ls -sl`;
+	string $rel[] = `listRelatives -c -type transform $sel[0]`;
+	if (size($rel) == 0)
+		return;
+	else
+	{
+		string $shape[] = `listRelatives -s $rel[0]`;
+		if (size($shape) == 0) return;
+		if (`nodeType $shape[0]` != "mesh") error "The selected group must constain one or more mesh objects!";
+	}
+
+	for ($s in $rel)
+	{
+		select -r ($s + ".e[*]");
+		string $curve[] = `polyToCurve -form 2 -degree 1`;
+		parent $curve[0] $sel[0];
+		delete $s;
+	}
+	select -r $sel[0];
+}
+
+global proc SecondAlgorithmcreateDisctrictGeo ()
+{
+	string $sel[] = `ls -sl`;
+	if (size($sel) == 0) return;
+
+	string $rel[] = `listRelatives -c -type transform $sel[0]`;
+	if (size($rel) == 0)
+		return;
+	else
+	{
+		string $shape[] = `listRelatives -s $rel[0]`;
+		if (size($shape) == 0) return;
+		if (`nodeType $shape[0]` != "nurbsCurve") error "The selected group must constain one or more curves!";
+	}
+
+	string $group = `createNode transform`;
+	$group = `rename $group "SecondAlgorithm_districts_grp"`;
+
+	string $plane[] = `polyPlane -w 80 -h 80 -sx 80 -sy 80 -ax 0 1 0 -cuv 2 -ch 0`;
+	select -cl;
+
+	$count = 1;
+	for ($s in $rel)
+	{
+		float $rot = rand(1,10);
+		string $workPlane[] = `duplicate -rr $plane[0]`;
+		$workPlane[0] = `rename $workPlane[0] "SecondAlgorithm_cutPlane"`;
+		rotate -r -ws 0 (5 + $rot) 0 $workPlane[0];
+		float $scale = rand(0.8,1.3);
+		scale -r $scale $scale $scale $workPlane[0];
+
+		string $pCurve[] = `polyProjectCurve -ch 1 -direction 0 1 0 -pointsOnEdges 0 $s $workPlane[0]`;
+
+		select -r $pCurve[0];
+		select -add $workPlane[0];
+		performSplitMeshWithProjectedCurve 0;
+		delete -ch $workPlane[0];
+		delete $pCurve[0];
+		delete $workPlane[0];
+
+		string $separate[];
+		int $shells[] = `polyEvaluate -s "SecondAlgorithm_cutPlane1"`;
+		if ($shells[0] > 1)
+		{
+			$separate = `polySeparate -ch 1 "SecondAlgorithm_cutPlane1"`;
+			delete $separate[0];
+			delete -ch $separate[1];
+			parent -w $separate[1];
+			delete "SecondAlgorithm_cutPlane1";
+		}
+		else
+		{
+			$separate[1] = "SecondAlgorithm_cutPlane1";
+			delete -ch $separate[1];
+		}
+
+		select -r $separate[1];
+		polySelectConstraint -m 3 -t 8 -ga 1 -gab 0 0.3;
+		string $remove[] = `ls -sl -fl`;
+		if (size($remove) > 0) delete $remove;
+		polySelectConstraint -ga 0;
+
+		int $polyCount[] = `polyEvaluate -f $separate[1]`;
+		if ($polyCount[0] < 5)
+			delete $separate[1];
+		else
+		{
+			parent $separate[1] $group;
+			rename $separate[1] ("SecondAlgorithm_disctrict" + $count);
+			$count ++;
+		}
+	}
+
+	delete $sel;
+	delete $plane[0];
+	select -cl;
+}
+
+global proc SecondAlgorithmdistrictArray ()
+{
+	string $sel[] = `ls -sl`;
+	if (size($sel) == 0) return;
+
+	int $moveX = -50;
+	int $moveZ = -50;
+	string $plane[];
+	$plane[0] = $sel[0];
+	for ($c = 0; $c < 3; $c ++)
+	{
+		for ($r = 0; $r < 3; $r ++)
+		{
+			$plane = `duplicate -rr -rc $plane[0]`;
+			move -r $moveX 0 $moveZ $plane[0];
+			$moveX = 50;
+			$moveZ = 0;
+			rotate -r -ws 0 ((int)rand(1,10) * 90) 0 $plane[0];
+		}
+		$moveX -= 150;
+		$moveZ = 50;
+	}
+	delete $sel[0];
+}
+
+global proc SecondAlgorithmexecuteMultiple ()
+{
+	string $sel[] = `ls -sl`;
+	if (size($sel) == 0) return;
+
+	string $shape[] = `listRelatives -s $sel[0]`;
+	if (size($shape) == 0) return;
+	if (`nodeType $shape[0]` != "mesh") error "The selection must be mesh objects!";
+
+	for ($s in $sel)
+	{
+		select -r $s;
+		$shape = `listRelatives -s $s`;
+		if (size($shape) == 1 && `nodeType $shape[0]` == "mesh") SecondAlgorithmexecute;
+	}
+}
+
+global proc SecondAlgorithmreplaceDropout ()
+{
+	string $obj[] = `ls -sl -dag`;
+	if (size($obj) == 0) return;
+
+	string $loc[] = `listRelatives -c SecondAlgorithm_filler_grp`;
+	for ($l in $loc)
+	{
+		string $copy[] = `duplicate -rr -rc $obj[0]`;
+		float $pos[] = `xform -q -ws -t $l`;
+		move -a -ws $pos[0] $pos[1] $pos[2] $copy[0];
+		parent $copy[0] SecondAlgorithm_filler_grp;
+		delete $l;
+	}
+}
+
+global proc SecondAlgorithmjitterVerts ()
+{
+	string $sel[] = `ls -sl`;
+	if (size($sel) == 0) return;
+	
+	for ($s in $sel)
+	{
+		string $shape[] = `listRelatives -s $s`;
+		if (`nodeType $shape[0]` == "mesh")
+		{
+			int $vertCount[] = `polyEvaluate -v $shape[0]`;
+			select -r ($shape[0] + ".vtx[0:" + ($vertCount[0] - 1) + "]");
+			string $verts[] = `ls -sl -fl`;
+			for ($v in $verts)
+			{
+				float $randomOffset = 0.1;
+				float $randX = rand(($randomOffset * -1),$randomOffset);
+				float $randY = rand(($randomOffset * -1),$randomOffset);
+				polyMoveVertex -ltx $randX -lty $randY -ch 0 $v;
+			}
+		}
+	}
+	select -cl;
+}
+
+global proc SecondAlgorithmprogressWindow ( int $max, string $label )
+{
+    string $progressWin = "icProgressWindow";
+    if (`window -exists $progressWin`)
+	{
+		deleteUI $progressWin;
+	}
+
+    window -t "Processing" -s 0 -tb 0 $progressWin;
+
+    columnLayout;
+        rowColumnLayout -nc 3 -cw 1 10 -cw 2 300 -cw 3 10;
+            text -l "";
+            text -l $label SecondAlgorithmRProgressLabel;
+            text -l "" -h 30;
+            text -l "";
+            string $progressBar = `progressBar -max $max -width 200 SecondAlgorithmProgress`;
+            text -l "";
+            text -l "";
+
+    showWindow $progressWin;
+}
+
+global proc SecondAlgorithmapplyPreset ( string $preset, float $value[] )
+{
+	floatFieldGrp -e -v1 $value[0] dropout;
+	floatFieldGrp -e -v1 $value[1] -v2 $value[2] heightRange;
+	floatFieldGrp -e -v1 $value[3] -v2 $value[4] scaleRange;
+	floatFieldGrp -e -v1 $value[5] rimHeight;
+
+	checkBox -e -v $value[6] rotateCheck;
+	floatFieldGrp -e -v1 $value[7] rotateOccur;
+	
+	checkBox -e -v $value[8] stairs;
+	radioButtonGrp -e -sl $value[9] maxLevelSteps;
+	checkBox -e -v $value[10] stacksCheck;
+	checkBox -e -v $value[11] wellsCheck;
+	floatFieldGrp -e -v1 $value[12] wellsOccur;
+	checkBox -e -v $value[13] roofCube;
+	floatFieldGrp -e -v1 $value[14] -v2 $value[15] sizeRange;
+	checkBox -e -v $value[16] topDetail;
+	radioButtonGrp -e -sl $value[17] complexity;
+	floatFieldGrp -e -v1 $value[18] detailHeight;
+	checkBox -e -v $value[19] antenna;
+	checkBox -e -v $value[20] shrinkCheck;
+}
+
+global proc SecondAlgorithmwritePreset ()
+{
+	string $presetName;
+	string $confirm = `promptDialog -t "Nombre"
+					-m "Ingresar nombre."
+					-b "Aceptar" -b "Cancelar"
+					-cb "Cancelar" -ds "Cancelar"`;
+
+	if ($confirm == "OK") $presetName = `promptDialog -q -t`;
+	else
+	{
+		print "// Cancelado. //\n";
+		return;
+	}
+	if ($presetName == "")
+	{
+		print "// Falta el nombre. //\n";
+		return;
+	}
+
+	float $vList[];
+
+	$vList[size($vList)] = `floatFieldGrp -q -v1 dropout`;
+	$vList[size($vList)] = `floatFieldGrp -q -v1 heightRange`;
+	$vList[size($vList)] = `floatFieldGrp -q -v2 heightRange`;
+	$vList[size($vList)] = `floatFieldGrp -q -v1 scaleRange`;
+	$vList[size($vList)] = `floatFieldGrp -q -v2 scaleRange`;
+	$vList[size($vList)] = `floatFieldGrp -q -v1 rimHeight`;
+
+	$vList[size($vList)] = `checkBox -q -v rotateCheck`;
+	$vList[size($vList)] = `floatFieldGrp -q -v1 rotateOccur`;
+
+	$vList[size($vList)] = `checkBox -q -v stairs`;
+	$vList[size($vList)] = `radioButtonGrp -q -sl maxLevelSteps`;
+	$vList[size($vList)] = `checkBox -q -v stacksCheck`;
+	$vList[size($vList)] = `checkBox -q -v wellsCheck`;
+	$vList[size($vList)] = `floatFieldGrp -q -v1 wellsOccur`;
+	$vList[size($vList)] = `checkBox -q -v roofCube`;
+	$vList[size($vList)] = `floatFieldGrp -q -v1 sizeRange`;
+	$vList[size($vList)] = `floatFieldGrp -q -v2 sizeRange`;
+	$vList[size($vList)] = `checkBox -q -v topDetail`;
+	$vList[size($vList)] = `radioButtonGrp -q -sl complexity`;
+	$vList[size($vList)] = `floatFieldGrp -q -v1 detailHeight`;
+	$vList[size($vList)] = `checkBox -q -v antenna`;
+	$vList[size($vList)] = `checkBox -q -v shrinkCheck`;
+
+	string $writeString = "<name>" + $presetName + "</name>\n<values>";
+	string $vString;
+	string $floatString;
+	for ($v = 0; $v < size($vList) - 1; $v ++)
+	{
+		$floatString = $vList[$v];
+		if (!`gmatch $floatString "*.*"`) $floatString = $floatString + ".0";
+		$writeString = $writeString + $floatString + ",";
+	}
+	$floatString = $vList[size($vList) - 1];
+	if (!`gmatch $floatString "*.*"`) $floatString = $floatString + ".0";
+	$writeString = $writeString + $floatString + "</values>\n";
+
+	string $result = `SecondAlgorithmpresetFileLocation`;
+
+	if (`filetest -e $result`)
+	{
+		int $fileID = `fopen $result "a"`;
+		fprint $fileID $writeString;
+		fclose $fileID;
+
+		menu -e -dai SecondAlgorithmpresetMenu;
+		
+		int $switch = 0;
+		string $version = `about -v`;
+		$version = `substring $version 1 4`;
+		if ((int)$version < 2012) $switch = 1;
+		SecondAlgorithmreadPresets $switch;
+	}
+}
+
+global proc SecondAlgorithmsetTiling ( int $tile )
+{
+	string $nodes[] = `ls -type place2dTexture`;
+	for ($n in $nodes)
+	{
+		if (`gmatch $n "*_place2d*"`) setAttr ($n + ".repeatUV") $tile $tile;
+	}
+}
+
+global proc SecondAlgorithmsetMapPath ()
+{
+	string $path[] = `fileDialog2 -fm 3 -ds 2 -okc "Select"`;
+	menuItem -e -l ($path[0] + "/") SecondAlgorithmmapPath;
+	optionVar -sv "SecondAlgorithmPuserDef_SecondAlgorithmmapPath" ($path[0] + "/");
+}
+
+global proc string SecondAlgorithmpresetFileLocation ()
+{
+	string $result = `whatIs SecondAlgorithmown`;
+	if (`gmatch $result "*Script found in*"`)
+		$result = `substitute "Script found in: " $result ""`;
+	else if (`gmatch $result "*Mel procedure found in*"`)
+		$result = `substitute "Mel procedure found in: " $result ""`;
+	$result = `substitute ".mel" $result "Presets.txt"`;
+	return $result;
+}
+
+global proc SecondAlgorithmreadPresets ( int $switch )
+{
+	string $result = `SecondAlgorithmpresetFileLocation`;
+
+	global string $SecondAlgorithmcolors[];
+	clear $SecondAlgorithmcolors;
+
+	if (`filetest -e $result`)
+	{
+		setParent -menu SecondAlgorithmpresetMenu;
+		menuItem -label "Save Preset..." -c ("SecondAlgorithmwritePreset");
+		menuItem -divider 1;
+
+		int $fileID = `fopen $result "r"`;
+		string $fileLine = `fgetline $fileID`;
+
+		string $presetName;
+		string $presetValues;
+		while (size($fileLine) > 0)
+		{
+			if (`gmatch $fileLine "*<filetex>*"`)
+			{
+				$presetName = `substitute "<filetex>" $fileLine ""`;
+				$presetName = `substitute "</filetex>\n" $presetName ""`;
+				$SecondAlgorithmcolors[size($SecondAlgorithmcolors)] = $presetName;
+			}
+			if (`gmatch $fileLine "*<divider>*"`)
+			{
+				menuItem -divider 1;
+			}
+			if (`gmatch $fileLine "*<name>*"`)
+			{
+				$presetName = `substitute "<name>" $fileLine ""`;
+				$presetName = `substitute "</name>" $presetName ""`;
+				$fileLine = `fgetline $fileID`;
+			}
+			if (`gmatch $fileLine "*<values>*"`)
+			{
+				$presetValues = `substitute "<values>" $fileLine ""`;
+				$presetValues = `substitute "</values>" $presetValues ""`;
+
+				if ($switch == 0 || !`gmatch $presetName "*District*"`)
+				{
+					setParent -menu SecondAlgorithmpresetMenu;
+					menuItem -l $presetName -c ("SecondAlgorithmapplyPreset " + $presetName + "{" + $presetValues + "}");
+				}
+			}
+			$fileLine = `fgetline $fileID`;
+		}
+		fclose $fileID;
+	}
+	else
+	{
+		setParent -menu SecondAlgorithmpresetMenu;
+		menuItem -l "Falta archivo preset" -en 0;
+	}
+}
+
+global proc SecondAlgorithm()
+{
+	int $switch = 0;
+	string $version = `about -v`;
+	$version = `substring $version 1 4`;
+	if ((int)$version < 2012) $switch = 1;
+	
+	string $win = "SegundoAlgoritmo";
+
+	if (`window -exists $win`)
+	{
+		deleteUI $win;
+	}
+
+	window -t "Segundo Algoritmo" -w 400 -h 415 -mb 1 $win;
+	if (`windowPref -exists $win`)
+	{
+		windowPref -e -wh 400 415 $win;
+	}
+
+	string $annSub = "Subdivisiones en el plano.";
+	string $annDrop = "Cantidad de espacio del edificio libre.";
+	string $annHeight = "Distancia entre edificios.";
+	string $annScale = "Rango de escala de los edificios.";
+	string $annRim = "The height of the top ledge/rim in world space units.";
+	string $annRotate = "Rotacion de edificios.";
+	string $annRotateOccur = "Cantidad de rotacion.";
+	string $annCombine = "Combinar todos los edificios como un objeto.";
+
+	string $annStairs = "Escaleras.";
+	string $annStacks = "Division en plantas.";
+	string $annWells = "Columnas verticales en algunos edificios.";
+	string $annWellsOccur = "Frecuencia de creacion de subterraneos.";
+	string $annCube = "Construir un cubo en lo alto de algunos edificios.";
+	string $annDetail = "Diferentes tipos de geometrias para los edificios.";
+	string $annDetailHeight = "Detalle de los edificios.";
+	string $annAntenna = "Antena.";
+	string $annTaper = "Escala superior de los edificios.";
+
+	int $tiling[] = {0,0,0,0,0,0};
+	int $type[] = {0,0,0,0,0,0};
+	int $material[] = {0,0,0};
+	int $uvState;
+	int $sRGBState;
+	string $mapPath;
+
+	if (`optionVar -ex "SecondAlgorithmuserDef_SecondAlgorithmtiling"`)
+	{
+		int $tileID = `optionVar -q "SecondAlgorithmuserDef_SecondAlgorithmtiling"`;
+		$tiling[$tileID] = 1;
+	}
+	else
+	{
+		$tiling[2] = 1;
+		optionVar -iv "SecondAlgorithmuserDef_SecondAlgorithmtiling" 2;
+	}
+
+	if (`optionVar -ex "SecondAlgorithmuserDef_SecondAlgorithmfileType"`)
+	{
+		int $typeID = `optionVar -q "SecondAlgorithmuserDef_SecondAlgorithmfileType"`;
+		$type[$typeID] = 1;
+	}
+	else
+	{
+		$type[3] = 1;
+		optionVar -iv "SecondAlgorithmuserDef_SecondAlgorithmfileType" 3;
+	}
+
+	if (`optionVar -ex "SecondAlgorithmuserDef_SecondAlgorithmshader"`)
+	{
+		int $shaderID = `optionVar -q "SecondAlgorithmuserDef_SecondAlgorithmshader"`;
+		if ($shaderID == 1 && `pluginInfo -q -l Mayatomr`)
+			$material[$shaderID] = 1;
+		else if ($shaderID == 2 && `pluginInfo -q -l vrayformaya`)
+			$material[$shaderID] = 1;
+		else $material[0] = 1;
+	}
+	else
+	{
+		$material[0] = 1;
+	}
+
+	if (`optionVar -ex "SecondAlgorithmuserDef_SecondAlgorithmcreateUV"`)
+		$uvState = `optionVar -q "SecondAlgorithmuserDef_SecondAlgorithmcreateUV"`;
+	else
+		$uvState = 1;
+
+	if (`optionVar -ex "SecondAlgorithmuserDef_SecondAlgorithmsRGBOption"`)
+		$sRGBState = `optionVar -q "SecondAlgorithmuserDef_SecondAlgorithmsRGBOption"`;
+	else
+		$sRGBState = 1;
+
+	if (`optionVar -ex "SecondAlgorithmuserDef_SecondAlgorithmflushOption"`)
+		$flushState = `optionVar -q "SecondAlgorithmuserDef_SecondAlgorithmflushOption"`;
+	else
+		$flushState = 1;
+
+	if (`optionVar -ex "SecondAlgorithmuserDef_SecondAlgorithmcombine"`)
+		$combineState = `optionVar -q "SecondAlgorithmuserDef_SecondAlgorithmcombine"`;
+	else
+		$combineState = 0;
+
+	if (`optionVar -ex "SecondAlgorithmPuserDef_SecondAlgorithmmapPath"`)
+		$mapPath = `optionVar -q "SecondAlgorithmPuserDef_SecondAlgorithmmapPath"`;
+	else
+		$mapPath = "sourceimages/";
+
+	if (`optionVar -ex "SecondAlgorithmuserDef_SecondAlgorithmdropoutLocator"`)
+		$locatorState = `optionVar -q "SecondAlgorithmuserDef_SecondAlgorithmdropoutLocator"`;
+	else
+		$locatorState = 1;
+
+	int $showMR = 0;
+	if (`pluginInfo -q -l Mayatomr`) $showMR = 1;
+	int $showVR = 0;
+	if (`pluginInfo -q -l vrayformaya`) $showVR = 1;
+
+	menu -label "sombreado" -tearOff true;
+		menuItem -label "Create UV" -cb $uvState -c ("optionVar -iv \"SecondAlgorithmuserDef_SecondAlgorithmcreateUV\" (1 - " + $uvState + ")") enableLayoutUV;
+		menuItem -divider 1;
+
+		menuItem -label "tipo de sombra" -sm 1;
+			radioMenuItemCollection;
+				menuItem -label "Blinn" -rb $material[0] -c ("optionVar -iv \"SecondAlgorithmuserDef_SecondAlgorithmshader\" 0;") shaderBlinn;
+				menuItem -label "mia_material" -en $showMR -rb $material[1] -c ("optionVar -iv \"SecondAlgorithmuserDef_SecondAlgorithmshader\" 1;") shaderMR;
+				menuItem -label "VRayMtl" -en $showVR -rb $material[2] -c ("optionVar -iv \"SecondAlgorithmuserDef_SecondAlgorithmshader\" 2;") shaderVRay;
+		setParent -menu ..;
+
+		menuItem -label "crear sombras" -c SecondAlgorithmcreateColors;
+		menuItem -divider 1;
+
+		menuItem -label "Texturas" -sm 1;
+			menuItem -l $mapPath -en 0 SecondAlgorithmmapPath;
+			menuItem -label "Project Default" -c ("menuItem -e -l \"sourceimages/\" SecondAlgorithmmapPath;optionVar -sv \"SecondAlgorithmPuserDef_SecondAlgorithmmapPath\" \"sourceimages/\";");
+			menuItem -label "Set..." -c SecondAlgorithmsetMapPath;
+		setParent -menu ..;
+
+		menuItem -label "recubrimiento" -sm 1 -ann "Can be set interactively";
+			radioMenuItemCollection;
+				menuItem -label "1" -rb $tiling[0] -c ("optionVar -iv \"SecondAlgorithmuserDef_SecondAlgorithmtiling\" 0;SecondAlgorithmsetTiling 1;");
+				menuItem -label "2" -rb $tiling[1] -c ("optionVar -iv \"SecondAlgorithmuserDef_SecondAlgorithmtiling\" 1;SecondAlgorithmsetTiling 2;");
+				menuItem -label "3" -rb $tiling[2] -c ("optionVar -iv \"SecondAlgorithmuserDef_SecondAlgorithmtiling\" 2;SecondAlgorithmsetTiling 3;");
+				menuItem -label "4" -rb $tiling[3] -c ("optionVar -iv \"SecondAlgorithmuserDef_SecondAlgorithmtiling\" 3;SecondAlgorithmsetTiling 4;");
+				menuItem -label "5" -rb $tiling[4] -c ("optionVar -iv \"SecondAlgorithmuserDef_SecondAlgorithmtiling\" 4;SecondAlgorithmsetTiling 5;");
+				menuItem -label "6" -rb $tiling[5] -c ("optionVar -iv \"SecondAlgorithmuserDef_SecondAlgorithmtiling\" 5;SecondAlgorithmsetTiling 6;");
+		setParent -menu ..;
+
+		menuItem -label "Tipo de archivo" -sm 1;
+			radioMenuItemCollection;
+				menuItem -label "bmp" -rb $type[0] -c ("optionVar -iv \"SecondAlgorithmuserDef_SecondAlgorithmfileType\" 0");
+				menuItem -label "exr" -rb $type[1] -c ("optionVar -iv \"SecondAlgorithmuserDef_SecondAlgorithmfileType\" 1");
+				menuItem -label "iff" -rb $type[2] -c ("optionVar -iv \"SecondAlgorithmuserDef_SecondAlgorithmfileType\" 2");
+				menuItem -label "jpg" -rb $type[3] -c ("optionVar -iv \"SecondAlgorithmuserDef_SecondAlgorithmfileType\" 3");
+				menuItem -label "png" -rb $type[4] -c ("optionVar -iv \"SecondAlgorithmuserDef_SecondAlgorithmfileType\" 4");
+				menuItem -label "tga" -rb $type[5] -c ("optionVar -iv \"SecondAlgorithmuserDef_SecondAlgorithmfileType\" 5");
+				menuItem -label "tif" -rb $type[6] -c ("optionVar -iv \"SecondAlgorithmuserDef_SecondAlgorithmfileType\" 6");
+		setParent -menu ..;
+
+		menuItem -label "incluir RGB" -cb $sRGBState -c ("optionVar -iv \"SecondAlgorithmuserDef_SecondAlgorithmsRGBOption\" (1 - " + $sRGBState + ")") enableRGB;
+		menuItem -label "crear archivo" -c SecondAlgorithmconnectTextures;
+
+	menu -label "Presets" -tearOff true SecondAlgorithmpresetMenu;
+
+	menu -label "Otros" -tearOff true;
+		menuItem -label "Crear varios" -c ("SecondAlgorithmexecuteMultiple");
+		menuItem -label "Reemplazar por propios" -c SecondAlgorithmreplaceDropout;
+		menuItem -divider 1;
+		menuItem -label "Limpiar cache despues de construir" -cb $flushState -c ("optionVar -iv \"SecondAlgorithmuserDef_SecondAlgorithmflushOption\" (1 - " + $flushState + ")") autoFlush;
+		menuItem -label "Limpiar cache" -c ("flushUndo");
+		menuItem -divider 1;
+		menuItem -label "eliminar barra de progreso" -c ("deleteUI icProgressWindow");
+	
+	if ($switch == 0)
+	{
+		menu -label "Herramientas" -tearOff true;
+			menuItem -label "Crear distritos" -c ("SecondAlgorithmcreateDisctricts");
+			menuItem -label "Crear geometria de distritos" -c ("SecondAlgorithmpolyToCurve;SecondAlgorithmcreateDisctrictGeo");
+			menuItem -label "Crear vector" -c ("SecondAlgorithmdistrictArray");
+			menuItem -label "Crear vertices aleatorios" -c ("SecondAlgorithmjitterVerts");
+	}
+
+
+	string $form = `formLayout "parentForm"`;
+
+
+	string $generalFrame = `frameLayout -l "Opciones"
+										-w 400 -h 250 -li 3
+										-mw 3 -mh 3 generalFrame`;
+	setParent $form;
+
+	string $additionalFrame = `frameLayout -l "Opcional"
+										-w 400 -h 235 -li 3
+										-mw 3 -mh 3 additionalFrame`;
+	setParent $form;
+
+
+	string $bExecute = `button -l "Construir ciudad" -h 30 -en 1 -c "SecondAlgorithmexecute" executeButton`;
+
+
+	formLayout -e
+		-af $generalFrame "top" 3
+		-an $generalFrame "bottom"
+		-af $generalFrame "left" 3
+		-af $generalFrame "right" 3
+
+		-ac $additionalFrame "top" 3 $generalFrame
+		-ac $additionalFrame "bottom" 3 $bExecute
+		-af $additionalFrame "left" 3
+		-af $additionalFrame "right" 3
+
+		-an $bExecute "top"
+		-af $bExecute "bottom" 3
+		-af $bExecute "left" 3
+		-af $bExecute "right" 3
+
+		$form;
+
+	setParent $generalFrame;
+
+	columnLayout -co "both" 10;
+		rowColumnLayout -nc 2 -cw 1 260 -cw 2 100;
+			intFieldGrp -l "subdivisiones" -cw2 100 50
+					-ct2 "left" "left" -cl2 "left" "left"
+					-v1 10 -ann $annSub planeSubdivisions;
+			button -l "Crear plano" -h 25 -c "SecondAlgorithmcreateBasePlane";
+			text -l "" -h 10;text -l "" -h 10;
+			separator;separator;
+		setParent ..;
+		text -l "" -h 10;
+		floatFieldGrp -l "% vacio" -cw2 100 50
+					-ct2 "left" "left" -cl2 "left" "left"
+					-pre 0 -v1 10 -ann $annDrop dropout;
+		floatFieldGrp -l "rango de altura" -nf 2 -cw3 100 50 50
+					-ct3 "left" "left" "left" -cl3 "left" "left" "left" -co3 0 0 10
+					-pre 2 -v1 0.3 -v2 3 -ann $annHeight heightRange;
+		floatFieldGrp -l "rango de escala" -nf 2 -cw3 100 50 50
+					-ct3 "left" "left" "left" -cl3 "left" "left" "left" -co3 0 0 10
+					-pre 2 -v1 0.5 -v2 0.8 -ann $annScale scaleRange;
+		floatFieldGrp -l "Altura del borde" -cw2 100 50
+					-ct2 "left" "left" -cl2 "left" "left"
+					-pre 2 -v1 0.03 -ann $annRim rimHeight;
+
+		rowColumnLayout -nc 2 -cw 1 100 -cw 2 280;
+			checkBox -l "Rotar" -v 0 -h 25 -ann $annRotate rotateCheck;
+			floatFieldGrp -l "Cantidad de rotaciones" -w 180 -cw2 120 50
+						-ct2 "left" "left" -cl2 "left" "left"
+						-pre 0 -v1 1 -ann $annRotateOccur rotateOccur;
+		setParent ..;
+		checkBox -l "Localizador de vacio" -v $locatorState -cc ("optionVar -iv \"SecondAlgorithmuserDef_SecondAlgorithmdropoutLocator\" (1 - " + $locatorState + ")") -h 25 dropoutLocator;
+
+		text -l "" -h 10;
+		checkBox -l "Combinar" -v $combineState -cc ("optionVar -iv \"SecondAlgorithmuserDef_SecondAlgorithmcombine\" (1 - " + $combineState + ")") -ann $annCombine applyCombine;
+		text -l "" -h 10;
+	setParent $additionalFrame;
+
+	columnLayout -co "both" 10;
+	rowColumnLayout -nc 2 -cw 1 100 -cw 2 280;
+		checkBox -l "Escaleras" -v 1 -h 25 -ann $annStairs stairs;
+		radioButtonGrp -nrb 4 -l "Maximo numero de pasos" -h 20 -cl5 "left" "left" "left" "left" "left"
+				-cw5 120 35 35 35 35 -ct5 "left" "both" "both" "both" "both"
+				-la4 "2" "3" "4" "5" -sl 2 maxLevelSteps;
+
+		checkBox -l "Pilas" -v 1 -h 25 -ann $annStacks stacksCheck;
+		text -l "" -h 10;
+
+		checkBox -l "Subterraneos" -v 1 -h 25 -ann $annWells wellsCheck;
+		floatFieldGrp -l "Ocurrencias" -w 180 -cw2 120 50
+					-ct2 "left" "left" -cl2 "left" "left"
+					-pre 0 -v1 1 -ann $annWellsOccur wellsOccur;
+
+		checkBox -l "Cubo superior" -v 1 -h 25 -ann $annCube roofCube;
+		floatFieldGrp -l "Size Range" -w 280 -nf 2 -cw3 120 50 50
+					-ct3 "left" "left" "left" -cl3 "left" "left" "left" -co3 0 0 10
+					-pre 2 -v1 0.25 -v2 0.4 sizeRange;
+
+
+		checkBox -l "Detalles" -v 1 -h 25 -ann $annDetail topDetail;
+		radioButtonGrp -nrb 3 -l "complejidad de detalle" -h 20 -cl4 "left" "left" "left" "left"
+				-cw4 120 35 35 35 -ct4 "left" "both" "both" "both"
+				-la3 "1" "2" "3" -sl 1 complexity;
+		text -l "" -h 5;text -l "" -h 5;
+		text -l "" -h 20;
+		floatFieldGrp -l "Altura" -w 180 -cw2 120 50
+					-ct2 "left" "left" -cl2 "left" "left"
+					-v1 0.25 -pre 2 -ann $annDetailHeight detailHeight;
+
+		checkBox -l "Antenas" -v 1 -h 25 -ann $annAntenna antenna;
+
+		text -l "" -h 10;
+		
+		checkBox -l "cubrimiento" -v 0 -h 25 -ann $annTaper shrinkCheck;
+		text -l "" -h 10;
+	setParent $form;
+
+	SecondAlgorithmreadPresets $switch;
+
+	showWindow $win;
+}
